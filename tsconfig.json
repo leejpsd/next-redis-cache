@@ -28,8 +28,7 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts",
-    "redis-handler.js"
+    "**/*.mts"
   ],
   "exclude": ["node_modules"]
 }
