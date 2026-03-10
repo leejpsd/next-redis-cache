@@ -185,7 +185,7 @@ next-redis-cache-demo/
 │   ├── layout.tsx                  # Root Layout
 │   └── page.tsx                    # 메인 페이지
 ├── public/                         # 정적 파일
-├── redis-handler.js                # Redis CacheHandler 구현
+├── redis-handler.ts                # Redis CacheHandler 구현
 ├── next.config.ts                  # Next.js 설정 (cacheHandlers)
 ├── package.json
 ├── tsconfig.json
@@ -235,7 +235,7 @@ const nextConfig: NextConfig = {
   cacheComponents: true, // Cache Components 활성화
 
   cacheHandlers: {
-    default: require.resolve("./redis-handler.js"), // Redis 핸들러
+    default: require.resolve("./redis-handler.ts"), // Redis 핸들러
   },
 
   cacheMaxMemorySize: 0, // 인메모리 캐시 비활성화
@@ -257,7 +257,7 @@ export default nextConfig;
 ### Redis CacheHandler 인터페이스
 
 ```js
-// redis-handler.js
+// redis-handler.ts
 module.exports = {
   async get(cacheKey, softTags) { ... },       // 캐시 조회
   async set(cacheKey, pendingEntry) { ... },   // 캐시 저장
@@ -328,7 +328,7 @@ export async function handleWebhook(req: NextRequest) {
 **Request:**
 
 ```bash
-curl -X POST "http://localhost:3000/api/revalidate?secret=eddy-test" \
+curl -X POST "http://localhost:3000/api/revalidate?secret=<REVALIDATION_SECRET>" \
   -H "topic: random-user/create"
 ```
 
@@ -342,7 +342,7 @@ curl -X POST "http://localhost:3000/api/revalidate?secret=eddy-test" \
 
 | 파라미터 | 값          | 설명                               |
 | -------- | ----------- | ---------------------------------- |
-| `secret` | `eddy-test` | 인증 시크릿 (환경변수로 관리 권장) |
+| `secret` | `<REVALIDATION_SECRET>` | 인증 시크릿 (환경변수로 관리 권장) |
 
 **Response:**
 
@@ -418,27 +418,25 @@ next-cache:tag:<tagName>
 
 ### Soft Stale vs Hard Stale 구현에 대해
 
-현재 데모의 CacheHandler는 **Next.js 공식 예제와 동일하게** 구현되어 있습니다.
+현재 데모의 CacheHandler는 `durations`를 반영해 Soft/Hard를 구분하도록 구현되어 있습니다.
 
 ```js
-// redis-handler.js - updateTags
+// redis-handler.ts - updateTags
 async updateTags(tags, durations) {
-  // durations 파라미터가 있지만, 공식 예제처럼 그냥 삭제
-  await client.del(entryKeys);
+  const isHardExpire = durations?.expire === 0;
+  if (isHardExpire) {
+    // Hard: 즉시 삭제
+    await client.del(entryKeys);
+  } else {
+    // Soft: 태그 만료 시각만 기록 (stale 처리)
+    await client.set(tagExpirationKey(tag), Date.now());
+  }
 }
 ```
 
-따라서 `revalidateTag("tag", "max")`와 `revalidateTag("tag", { expire: 0 })` **모두 캐시를 즉시 삭제**합니다.
-
-**실제 Soft Stale(stale-while-revalidate) 동작**을 구현하려면:
-
-1. `durations` 파라미터를 확인하고
-2. 삭제 대신 stale timestamp를 기록한 뒤
-3. `get()`에서 stale 상태면 기존 값 반환 + 백그라운드 갱신
-
-이 로직을 CacheHandler에서 직접 구현해야 합니다. Next.js가 자동으로 해주는 것이 아닙니다.
-
-> 💡 데모에서는 개념 이해에 초점을 맞췄으며, 프로덕션 레벨 구현은 추후 다룰 예정입니다.
+즉:
+1. `revalidateTag("tag", "max")`는 Soft stale 경로를 탑니다.
+2. `revalidateTag("tag", { expire: 0 })`는 Hard expire로 즉시 삭제합니다.
 
 ### 환경변수
 
@@ -451,9 +449,9 @@ REVALIDATION_SECRET=your-secret-key
 ```
 
 ```js
-// redis-handler.js
+// redis-handler.ts
 const client = createClient({
-  url: process.env.REDIS_URL || "redis://localhost:6379",
+  url: process.env.REDIS_URL,
 });
 ```
 

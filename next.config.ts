@@ -4,11 +4,11 @@ const nextConfig: NextConfig = {
   // 여기서 Redis 핸들러를 default 또는 remote에 붙임
   cacheHandlers: {
     // 전체 서버 캐시를 Redis로 공유하고 싶다면:
-    default: require.resolve("./redis-handler.js"),
+    default: require.resolve("./redis-handler.ts"),
 
     // 혹은 'use cache: remote' 전용으로만 쓰고 싶으면 remote에만 등록하고,
     // default는 기존 in-memory 그대로 둬도 됨.
-    // remote: require.resolve('./redis-handler.js'),
+    // remote: require.resolve("./redis-handler.ts"),
   },
 
   // 기본 파일시스템/메모리 캐시를 0으로 꺼버려야
