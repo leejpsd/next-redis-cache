@@ -3,12 +3,13 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 interface SignatureInput {
   topic: string;
   timestamp: string;
+  webhookId: string;
   body: string;
   secret: string;
 }
 
 export function createWebhookSignature(input: SignatureInput): string {
-  const payload = `${input.timestamp}.${input.topic}.${input.body}`;
+  const payload = `${input.timestamp}.${input.topic}.${input.webhookId}.${input.body}`;
   return createHmac("sha256", input.secret).update(payload).digest("hex");
 }
 
@@ -31,4 +32,3 @@ export function isTimestampWithinSkew(
   const skewMs = Math.abs(Date.now() - parsed);
   return skewMs <= maxSkewSeconds * 1000;
 }
-

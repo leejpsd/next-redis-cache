@@ -9,6 +9,7 @@ describe("webhook-signature", () => {
   const baseInput = {
     topic: "random-user/create",
     timestamp: "1700000000000",
+    webhookId: "evt_01hxyz",
     body: '{"source":"test"}',
     secret: "test-secret",
   };
@@ -50,6 +51,18 @@ describe("webhook-signature", () => {
     const verified = verifyWebhookSignature({
       ...baseInput,
       secret: "wrong-secret",
+      signature,
+    });
+
+    expect(verified).toBe(false);
+  });
+
+  it("webhook id가 바뀌면 서명 검증에 실패한다", () => {
+    const signature = createWebhookSignature(baseInput);
+
+    const verified = verifyWebhookSignature({
+      ...baseInput,
+      webhookId: "evt_01different",
       signature,
     });
 
