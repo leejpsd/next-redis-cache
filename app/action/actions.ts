@@ -2,6 +2,7 @@
 
 import { revalidateTag } from "next/cache";
 import { env } from "@/lib/env";
+import { createWebhookSignature } from "@/lib/webhook-signature";
 
 export async function invalidateRandomUser() {
   // 그리고 캐시 무효화
@@ -11,6 +12,15 @@ export async function invalidateRandomUser() {
 export async function postRandomUser() {
   const endpoint = new URL("/api/revalidate", env.APP_BASE_URL);
   endpoint.searchParams.set("secret", env.REVALIDATION_SECRET);
+  const body = JSON.stringify({ source: "cache-controls" });
+  const topic = "random-user/create";
+  const timestamp = Date.now().toString();
+  const signature = createWebhookSignature({
+    topic,
+    timestamp,
+    body,
+    secret: env.WEBHOOK_SIGNING_SECRET,
+  });
 
   const maxAttempts = 2;
 
@@ -19,8 +29,12 @@ export async function postRandomUser() {
       const data = await fetch(endpoint, {
         method: "POST",
         headers: {
-          topic: "random-user/create",
+          topic,
+          "content-type": "application/json",
+          "x-webhook-timestamp": timestamp,
+          "x-webhook-signature": signature,
         },
+        body,
         signal: AbortSignal.timeout(5000),
       });
 

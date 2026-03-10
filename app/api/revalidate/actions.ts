@@ -1,7 +1,11 @@
 import { revalidateTag } from "next/cache";
-import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { env } from "@/lib/env";
+import { getRedisClient } from "@/lib/redis-client";
+import {
+  isTimestampWithinSkew,
+  verifyWebhookSignature,
+} from "@/lib/webhook-signature";
 
 const PRODUCT_WEBHOOKS = [
   "random-user/create",
@@ -9,11 +13,44 @@ const PRODUCT_WEBHOOKS = [
   "random-user/update",
 ];
 
-export async function handleWebhook(req: NextRequest): Promise<NextResponse> {
-  const headersList = await headers();
+async function isRateLimitExceeded(ip: string): Promise<boolean> {
+  const currentWindow = Math.floor(Date.now() / 1000 / 60);
+  const key = `revalidate:ratelimit:${ip}:${currentWindow}`;
 
-  const topic = headersList.get("topic") || "unknown";
+  const redis = await getRedisClient();
+  const count = await redis.incr(key);
+
+  if (count === 1) {
+    await redis.expire(key, 70);
+  }
+
+  return count > env.REVALIDATE_RATE_LIMIT_PER_MINUTE;
+}
+
+export async function handleWebhook(req: NextRequest): Promise<NextResponse> {
+  const forwardedFor = req.headers.get("x-forwarded-for") || "";
+  const ip = forwardedFor.split(",")[0]?.trim() || "unknown";
+
+  try {
+    if (await isRateLimitExceeded(ip)) {
+      return NextResponse.json(
+        { status: 429, reason: "too many requests" },
+        { status: 429 }
+      );
+    }
+  } catch (error) {
+    console.error("[revalidate] rate-limit check failed:", error);
+    return NextResponse.json(
+      { status: 503, reason: "rate-limit unavailable" },
+      { status: 503 }
+    );
+  }
+
+  const topic = req.headers.get("topic") || "unknown";
   const secret = req.nextUrl.searchParams.get("secret");
+  const timestamp = req.headers.get("x-webhook-timestamp") || "";
+  const signature = req.headers.get("x-webhook-signature") || "";
+  const body = await req.text();
   const isProductUpdate = PRODUCT_WEBHOOKS.includes(topic);
 
   if (!secret || secret !== env.REVALIDATION_SECRET) {
@@ -24,14 +61,38 @@ export async function handleWebhook(req: NextRequest): Promise<NextResponse> {
   }
 
   if (!isProductUpdate) {
-    return NextResponse.json({
-      status: 400,
-      reason: "not product topic",
-    }, { status: 400 });
+    return NextResponse.json(
+      {
+        status: 400,
+        reason: "not product topic",
+      },
+      { status: 400 }
+    );
   }
 
-  // 여기서 Redis 기반 CacheHandler + use cache 계층의 캐시 무효화
-  revalidateTag("random-user", { expire: 0 }); // 즉시 만료
+  if (!isTimestampWithinSkew(timestamp, env.WEBHOOK_MAX_SKEW_SECONDS)) {
+    return NextResponse.json(
+      { status: 401, reason: "invalid timestamp" },
+      { status: 401 }
+    );
+  }
+
+  const isValidSignature = verifyWebhookSignature({
+    topic,
+    timestamp,
+    body,
+    signature,
+    secret: env.WEBHOOK_SIGNING_SECRET,
+  });
+
+  if (!isValidSignature) {
+    return NextResponse.json(
+      { status: 401, reason: "invalid signature" },
+      { status: 401 }
+    );
+  }
+
+  revalidateTag("random-user", { expire: 0 });
 
   console.log("캐시 무효화 완료 (random-user)");
 
@@ -45,3 +106,4 @@ export async function handleWebhook(req: NextRequest): Promise<NextResponse> {
     { status: 202 }
   );
 }
+

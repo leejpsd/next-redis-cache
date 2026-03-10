@@ -328,15 +328,28 @@ export async function handleWebhook(req: NextRequest) {
 **Request:**
 
 ```bash
+TOPIC="random-user/create"
+TIMESTAMP="$(date +%s%3N)"
+BODY='{"source":"external-webhook"}'
+PAYLOAD="${TIMESTAMP}.${TOPIC}.${BODY}"
+SIGNATURE="$(printf "%s" "$PAYLOAD" | openssl dgst -sha256 -hmac "$WEBHOOK_SIGNING_SECRET" -hex | sed 's/^.* //')"
+
 curl -X POST "http://localhost:3000/api/revalidate?secret=<REVALIDATION_SECRET>" \
-  -H "topic: random-user/create"
+  -H "content-type: application/json" \
+  -H "topic: ${TOPIC}" \
+  -H "x-webhook-timestamp: ${TIMESTAMP}" \
+  -H "x-webhook-signature: ${SIGNATURE}" \
+  --data "$BODY"
 ```
 
 **Headers:**
 
-| 헤더    | 값                   | 설명                               |
-| ------- | -------------------- | ---------------------------------- |
-| `topic` | `random-user/create` | 무효화 대상 (create/update/delete) |
+| 헤더                  | 값 예시               | 설명                                      |
+| --------------------- | --------------------- | ----------------------------------------- |
+| `content-type`        | `application/json`    | 요청 본문 타입                             |
+| `topic`               | `random-user/create`  | 무효화 대상 (create/update/delete)         |
+| `x-webhook-timestamp` | `1704067200000`       | 요청 시각(ms). 재전송/지연 공격 방지에 사용 |
+| `x-webhook-signature` | `<hmac-sha256-hex>`   | `timestamp.topic.body` 기반 HMAC 서명      |
 
 **Query Parameters:**
 
@@ -354,6 +367,17 @@ curl -X POST "http://localhost:3000/api/revalidate?secret=<REVALIDATION_SECRET>"
   "now": 1704067200000
 }
 ```
+
+**주요 에러 응답:**
+
+| status | reason                   | 의미                          |
+| ------ | ------------------------ | ----------------------------- |
+| 400    | `not product topic`      | 지원하지 않는 topic           |
+| 401    | `invalid secret`         | secret 불일치                 |
+| 401    | `invalid timestamp`      | 허용 시간 오차 초과           |
+| 401    | `invalid signature`      | HMAC 서명 검증 실패           |
+| 429    | `too many requests`      | Rate limit 초과               |
+| 503    | `rate-limit unavailable` | Rate limit 저장소 접근 불가   |
 
 **지원하는 topic:**
 
@@ -446,6 +470,9 @@ async updateTags(tags, durations) {
 # .env.local
 REDIS_URL=redis://localhost:6379
 REVALIDATION_SECRET=your-secret-key
+WEBHOOK_SIGNING_SECRET=your-hmac-secret
+REVALIDATE_RATE_LIMIT_PER_MINUTE=30
+WEBHOOK_MAX_SKEW_SECONDS=300
 ```
 
 ```js
@@ -492,6 +519,21 @@ Error: updateTag can only be called from within a Server Action
 ```
 
 **해결:** Route Handler에서는 `updateTag` 대신 `revalidateTag(tag, { expire: 0 })` 사용
+
+### Webhook 인증/속도 제한 에러가 발생함
+
+```
+401 invalid signature
+401 invalid timestamp
+429 too many requests
+```
+
+**해결:**
+
+1. `x-webhook-timestamp`를 요청 직전 ms 단위로 생성했는지 확인
+2. `x-webhook-signature`가 `timestamp.topic.body` 순서로 HMAC 서명됐는지 확인
+3. `WEBHOOK_SIGNING_SECRET` 값이 서버와 발신자에서 동일한지 확인
+4. 짧은 시간에 과도한 호출이 있으면 `REVALIDATE_RATE_LIMIT_PER_MINUTE` 조정
 
 ### TypeScript 에러
 
