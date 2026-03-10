@@ -39,4 +39,5 @@ export const env = {
     30
   ),
   WEBHOOK_MAX_SKEW_SECONDS: optionalNumberEnv("WEBHOOK_MAX_SKEW_SECONDS", 300),
+  WEBHOOK_NONCE_TTL_SECONDS: optionalNumberEnv("WEBHOOK_NONCE_TTL_SECONDS", 600),
 } as const;
