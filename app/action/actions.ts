@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidateTag } from "next/cache";
+import { randomUUID } from "node:crypto";
 import { env } from "@/lib/env";
 import { createWebhookSignature } from "@/lib/webhook-signature";
 
@@ -15,9 +16,11 @@ export async function postRandomUser() {
   const body = JSON.stringify({ source: "cache-controls" });
   const topic = "random-user/create";
   const timestamp = Date.now().toString();
+  const webhookId = randomUUID();
   const signature = createWebhookSignature({
     topic,
     timestamp,
+    webhookId,
     body,
     secret: env.WEBHOOK_SIGNING_SECRET,
   });
@@ -32,6 +35,7 @@ export async function postRandomUser() {
           topic,
           "content-type": "application/json",
           "x-webhook-timestamp": timestamp,
+          "x-webhook-id": webhookId,
           "x-webhook-signature": signature,
         },
         body,

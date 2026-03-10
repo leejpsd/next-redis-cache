@@ -27,6 +27,19 @@ async function isRateLimitExceeded(ip: string): Promise<boolean> {
   return count > env.REVALIDATE_RATE_LIMIT_PER_MINUTE;
 }
 
+async function registerWebhookNonce(webhookId: string): Promise<boolean> {
+  if (!webhookId) return false;
+
+  const key = `revalidate:nonce:${webhookId}`;
+  const redis = await getRedisClient();
+  const inserted = await redis.set(key, "1", {
+    NX: true,
+    EX: env.WEBHOOK_NONCE_TTL_SECONDS,
+  });
+
+  return inserted === "OK";
+}
+
 export async function handleWebhook(req: NextRequest): Promise<NextResponse> {
   const forwardedFor = req.headers.get("x-forwarded-for") || "";
   const ip = forwardedFor.split(",")[0]?.trim() || "unknown";
@@ -49,6 +62,7 @@ export async function handleWebhook(req: NextRequest): Promise<NextResponse> {
   const topic = req.headers.get("topic") || "unknown";
   const secret = req.nextUrl.searchParams.get("secret");
   const timestamp = req.headers.get("x-webhook-timestamp") || "";
+  const webhookId = req.headers.get("x-webhook-id") || "";
   const signature = req.headers.get("x-webhook-signature") || "";
   const body = await req.text();
   const isProductUpdate = PRODUCT_WEBHOOKS.includes(topic);
@@ -77,9 +91,17 @@ export async function handleWebhook(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  if (!webhookId) {
+    return NextResponse.json(
+      { status: 401, reason: "invalid webhook id" },
+      { status: 401 }
+    );
+  }
+
   const isValidSignature = verifyWebhookSignature({
     topic,
     timestamp,
+    webhookId,
     body,
     signature,
     secret: env.WEBHOOK_SIGNING_SECRET,
@@ -89,6 +111,22 @@ export async function handleWebhook(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       { status: 401, reason: "invalid signature" },
       { status: 401 }
+    );
+  }
+
+  try {
+    const isNonceAccepted = await registerWebhookNonce(webhookId);
+    if (!isNonceAccepted) {
+      return NextResponse.json(
+        { status: 401, reason: "replayed webhook id" },
+        { status: 401 }
+      );
+    }
+  } catch (error) {
+    console.error("[revalidate] nonce registration failed:", error);
+    return NextResponse.json(
+      { status: 503, reason: "nonce store unavailable" },
+      { status: 503 }
     );
   }
 
@@ -106,4 +144,3 @@ export async function handleWebhook(req: NextRequest): Promise<NextResponse> {
     { status: 202 }
   );
 }
-

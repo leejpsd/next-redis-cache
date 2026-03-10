@@ -37,6 +37,7 @@ function makeRequest(options?: {
   secret?: string;
   topic?: string;
   timestamp?: string;
+  webhookId?: string;
   signature?: string;
   body?: string;
   ip?: string;
@@ -44,6 +45,7 @@ function makeRequest(options?: {
   const secret = options?.secret ?? "test-secret";
   const topic = options?.topic ?? "random-user/create";
   const timestamp = options?.timestamp ?? Date.now().toString();
+  const webhookId = options?.webhookId ?? "evt_01test";
   const signature = options?.signature ?? "dummy-signature";
   const body = options?.body ?? '{"source":"test"}';
   const ip = options?.ip ?? "1.2.3.4";
@@ -55,6 +57,7 @@ function makeRequest(options?: {
       topic,
       "content-type": "application/json",
       "x-webhook-timestamp": timestamp,
+      "x-webhook-id": webhookId,
       "x-webhook-signature": signature,
       "x-forwarded-for": ip,
     },
@@ -67,17 +70,21 @@ function makeRequest(options?: {
 describe("POST /api/revalidate 보안 분기", () => {
   const incr = vi.fn();
   const expire = vi.fn();
+  const set = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(console, "error").mockImplementation(() => {});
 
     vi.mocked(getRedisClient).mockResolvedValue({
       incr,
       expire,
+      set,
     } as unknown as Awaited<ReturnType<typeof getRedisClient>>);
 
     incr.mockResolvedValue(1);
     expire.mockResolvedValue(1);
+    set.mockResolvedValue("OK");
     vi.mocked(isTimestampWithinSkew).mockReturnValue(true);
     vi.mocked(verifyWebhookSignature).mockReturnValue(true);
   });
@@ -128,6 +135,34 @@ describe("POST /api/revalidate 보안 분기", () => {
     expect(json.reason).toBe("invalid signature");
   });
 
+  it("webhook id가 누락되면 401을 반환한다", async () => {
+    const res = await handleWebhook(makeRequest({ webhookId: "" }));
+    const json = await res.json();
+
+    expect(res.status).toBe(401);
+    expect(json.reason).toBe("invalid webhook id");
+  });
+
+  it("동일 webhook id 재사용 시 401을 반환한다", async () => {
+    set.mockResolvedValueOnce(null);
+
+    const res = await handleWebhook(makeRequest({ webhookId: "evt_replay" }));
+    const json = await res.json();
+
+    expect(res.status).toBe(401);
+    expect(json.reason).toBe("replayed webhook id");
+  });
+
+  it("nonce 저장소 오류 시 503을 반환한다", async () => {
+    set.mockRejectedValueOnce(new Error("redis down"));
+
+    const res = await handleWebhook(makeRequest({ webhookId: "evt_store_down" }));
+    const json = await res.json();
+
+    expect(res.status).toBe(503);
+    expect(json.reason).toBe("nonce store unavailable");
+  });
+
   it("모든 검증 통과 시 202와 revalidateTag 호출", async () => {
     const res = await handleWebhook(makeRequest());
     const json = await res.json();
@@ -137,4 +172,3 @@ describe("POST /api/revalidate 보안 분기", () => {
     expect(revalidateTag).toHaveBeenCalledWith("random-user", { expire: 0 });
   });
 });
-
