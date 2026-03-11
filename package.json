@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:e2e:webhook-flow": "node scripts/e2e-webhook-flow.mjs"
   },
   "dependencies": {
     "next": "16.0.3",
