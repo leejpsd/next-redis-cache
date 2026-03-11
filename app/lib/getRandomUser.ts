@@ -4,9 +4,7 @@ export async function getRandomUser() {
   "use cache";
   cacheTag("random-user");
 
-  const res = await fetch("https://randomuser.me/api", {
-    cache: "no-store", // ← fetch 레벨 캐시 비활성화
-  });
+  const res = await fetch("https://randomuser.me/api");
   if (!res.ok) {
     throw new Error("Failed to fetch random user");
   }
