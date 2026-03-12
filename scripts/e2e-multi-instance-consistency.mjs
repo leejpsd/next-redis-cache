@@ -34,7 +34,7 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
-function main() {
+async function main() {
   let sourceVersion = 1;
   const fetchSource = () => sourceVersion;
 
@@ -68,28 +68,41 @@ function main() {
   assert(beforeMismatch === true, "Expected mismatch in local cache mode");
   assert(afterMismatch === false, "Expected no mismatch in shared cache mode");
 
-  console.log(
-    JSON.stringify(
-      {
-        ok: true,
-        before: {
-          mode: "local-per-instance-cache",
-          instanceA: beforeA,
-          instanceB: beforeB,
-          mismatch: beforeMismatch,
-        },
-        after: {
-          mode: "shared-cache",
-          instanceA: afterA,
-          instanceB: afterB,
-          mismatch: afterMismatch,
-        },
+  const result = {
+    ok: true,
+    before: {
+      mode: "local-per-instance-cache",
+      instanceA: beforeA,
+      instanceB: beforeB,
+      mismatch: beforeMismatch,
+    },
+    after: {
+      mode: "shared-cache",
+      instanceA: afterA,
+      instanceB: afterB,
+      mismatch: afterMismatch,
+    },
+  };
+
+  console.log(JSON.stringify(result, null, 2));
+
+  if (process.env.APP_BASE_URL) {
+    const reportUrl = new URL("/api/metrics/consistency", process.env.APP_BASE_URL);
+    await fetch(reportUrl, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
       },
-      null,
-      2
-    )
-  );
+      body: JSON.stringify({ mismatch: beforeMismatch }),
+    }).catch(() => null);
+    await fetch(reportUrl, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ mismatch: afterMismatch }),
+    }).catch(() => null);
+  }
 }
 
-main();
-
+await main();

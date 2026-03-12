@@ -1,6 +1,7 @@
 // app/page.tsx
 import { Suspense } from "react";
 import { CacheControls } from "./components/CacheControls";
+import { MetricsPanel } from "./components/MetricsPanel";
 import UserProfile from "./components/UserProfile";
 import { getRandomUser } from "./lib/getRandomUser";
 
@@ -36,6 +37,8 @@ export default async function Home() {
         <Suspense fallback={<SkeletonCard />}>
           <UserProfile />
         </Suspense>
+
+        <MetricsPanel />
       </div>
     </main>
   );
