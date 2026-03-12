@@ -23,6 +23,8 @@ export async function GET(): Promise<NextResponse> {
       revalidateError: metrics.counters["revalidate.error"],
       invalidationLatencyAvgMs: metrics.invalidationLatency.avgMs,
       invalidationLatencyMaxMs: metrics.invalidationLatency.maxMs,
+      consistencyMismatchRatePct: metrics.consistencyMismatchRate.ratePct,
+      consistencyChecks: metrics.consistencyMismatchRate.checks,
     },
   };
 
