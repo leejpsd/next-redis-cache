@@ -25,6 +25,12 @@ export async function GET(): Promise<NextResponse> {
       invalidationLatencyMaxMs: metrics.invalidationLatency.maxMs,
       consistencyMismatchRatePct: metrics.consistencyMismatchRate.ratePct,
       consistencyChecks: metrics.consistencyMismatchRate.checks,
+      prefetchAutoAvgMs: metrics.prefetchTransitionByMode.auto.avgMs,
+      prefetchAutoCount: metrics.prefetchTransitionByMode.auto.count,
+      prefetchTrueAvgMs: metrics.prefetchTransitionByMode.true.avgMs,
+      prefetchTrueCount: metrics.prefetchTransitionByMode.true.count,
+      prefetchFalseAvgMs: metrics.prefetchTransitionByMode.false.avgMs,
+      prefetchFalseCount: metrics.prefetchTransitionByMode.false.count,
     },
   };
 

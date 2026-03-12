@@ -2,6 +2,7 @@
 import { Suspense } from "react";
 import { CacheControls } from "./components/CacheControls";
 import { MetricsPanel } from "./components/MetricsPanel";
+import { PrefetchLab } from "./components/PrefetchLab";
 import UserProfile from "./components/UserProfile";
 import { getRandomUser } from "./lib/getRandomUser";
 
@@ -37,6 +38,8 @@ export default async function Home() {
         <Suspense fallback={<SkeletonCard />}>
           <UserProfile />
         </Suspense>
+
+        <PrefetchLab />
 
         <MetricsPanel />
       </div>
