@@ -1,4 +1,5 @@
 import { revalidateTag } from "next/cache";
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { getRedisClient } from "@/lib/redis-client";
@@ -12,6 +13,21 @@ const PRODUCT_WEBHOOKS = [
   "random-user/delete",
   "random-user/update",
 ];
+
+function logRevalidateEvent(
+  requestId: string,
+  event: string,
+  detail?: Record<string, unknown>
+): void {
+  console.log(
+    JSON.stringify({
+      requestId,
+      event,
+      ...detail,
+      at: new Date().toISOString(),
+    })
+  );
+}
 
 async function isRateLimitExceeded(ip: string): Promise<boolean> {
   const currentWindow = Math.floor(Date.now() / 1000 / 60);
@@ -41,20 +57,28 @@ async function registerWebhookNonce(webhookId: string): Promise<boolean> {
 }
 
 export async function handleWebhook(req: NextRequest): Promise<NextResponse> {
+  const requestId = req.headers.get("x-request-id") || randomUUID();
   const forwardedFor = req.headers.get("x-forwarded-for") || "";
   const ip = forwardedFor.split(",")[0]?.trim() || "unknown";
 
   try {
     if (await isRateLimitExceeded(ip)) {
+      logRevalidateEvent(requestId, "revalidate.rejected", {
+        reason: "too_many_requests",
+        ip,
+      });
       return NextResponse.json(
-        { status: 429, reason: "too many requests" },
+        { status: 429, reason: "too many requests", requestId },
         { status: 429 }
       );
     }
   } catch (error) {
-    console.error("[revalidate] rate-limit check failed:", error);
+    logRevalidateEvent(requestId, "revalidate.error", {
+      reason: "rate_limit_unavailable",
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
-      { status: 503, reason: "rate-limit unavailable" },
+      { status: 503, reason: "rate-limit unavailable", requestId },
       { status: 503 }
     );
   }
@@ -68,32 +92,51 @@ export async function handleWebhook(req: NextRequest): Promise<NextResponse> {
   const isProductUpdate = PRODUCT_WEBHOOKS.includes(topic);
 
   if (!secret || secret !== env.REVALIDATION_SECRET) {
+    logRevalidateEvent(requestId, "revalidate.rejected", {
+      reason: "invalid_secret",
+      ip,
+      topic,
+    });
     return NextResponse.json(
-      { status: 401, reason: "invalid secret" },
+      { status: 401, reason: "invalid secret", requestId },
       { status: 401 }
     );
   }
 
   if (!isProductUpdate) {
+    logRevalidateEvent(requestId, "revalidate.rejected", {
+      reason: "not_product_topic",
+      topic,
+    });
     return NextResponse.json(
       {
         status: 400,
         reason: "not product topic",
+        requestId,
       },
       { status: 400 }
     );
   }
 
   if (!isTimestampWithinSkew(timestamp, env.WEBHOOK_MAX_SKEW_SECONDS)) {
+    logRevalidateEvent(requestId, "revalidate.rejected", {
+      reason: "invalid_timestamp",
+      topic,
+      timestamp,
+    });
     return NextResponse.json(
-      { status: 401, reason: "invalid timestamp" },
+      { status: 401, reason: "invalid timestamp", requestId },
       { status: 401 }
     );
   }
 
   if (!webhookId) {
+    logRevalidateEvent(requestId, "revalidate.rejected", {
+      reason: "invalid_webhook_id",
+      topic,
+    });
     return NextResponse.json(
-      { status: 401, reason: "invalid webhook id" },
+      { status: 401, reason: "invalid webhook id", requestId },
       { status: 401 }
     );
   }
@@ -108,8 +151,13 @@ export async function handleWebhook(req: NextRequest): Promise<NextResponse> {
   });
 
   if (!isValidSignature) {
+    logRevalidateEvent(requestId, "revalidate.rejected", {
+      reason: "invalid_signature",
+      topic,
+      webhookId,
+    });
     return NextResponse.json(
-      { status: 401, reason: "invalid signature" },
+      { status: 401, reason: "invalid signature", requestId },
       { status: 401 }
     );
   }
@@ -117,28 +165,41 @@ export async function handleWebhook(req: NextRequest): Promise<NextResponse> {
   try {
     const isNonceAccepted = await registerWebhookNonce(webhookId);
     if (!isNonceAccepted) {
+      logRevalidateEvent(requestId, "revalidate.rejected", {
+        reason: "replayed_webhook_id",
+        webhookId,
+      });
       return NextResponse.json(
-        { status: 401, reason: "replayed webhook id" },
+        { status: 401, reason: "replayed webhook id", requestId },
         { status: 401 }
       );
     }
   } catch (error) {
-    console.error("[revalidate] nonce registration failed:", error);
+    logRevalidateEvent(requestId, "revalidate.error", {
+      reason: "nonce_store_unavailable",
+      error: error instanceof Error ? error.message : String(error),
+      webhookId,
+    });
     return NextResponse.json(
-      { status: 503, reason: "nonce store unavailable" },
+      { status: 503, reason: "nonce store unavailable", requestId },
       { status: 503 }
     );
   }
 
   revalidateTag("random-user", { expire: 0 });
 
-  console.log("캐시 무효화 완료 (random-user)");
+  logRevalidateEvent(requestId, "revalidate.accepted", {
+    tag: "random-user",
+    topic,
+    webhookId,
+  });
 
   return NextResponse.json(
     {
       status: 202,
       revalidated: true,
       tag: "random-user",
+      requestId,
       now: Date.now(),
     },
     { status: 202 }
