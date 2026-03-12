@@ -17,6 +17,12 @@ type HealthResponse = {
     revalidateError: number;
     invalidationLatencyAvgMs: number;
     invalidationLatencyMaxMs: number;
+    prefetchAutoAvgMs: number;
+    prefetchAutoCount: number;
+    prefetchTrueAvgMs: number;
+    prefetchTrueCount: number;
+    prefetchFalseAvgMs: number;
+    prefetchFalseCount: number;
   };
 };
 
@@ -41,6 +47,26 @@ type MetricsResponse = {
       checks: number;
       mismatches: number;
       ratePct: number;
+    };
+    prefetchTransitionByMode: {
+      auto: {
+        count: number;
+        sumMs: number;
+        avgMs: number;
+        maxMs: number;
+      };
+      true: {
+        count: number;
+        sumMs: number;
+        avgMs: number;
+        maxMs: number;
+      };
+      false: {
+        count: number;
+        sumMs: number;
+        avgMs: number;
+        maxMs: number;
+      };
     };
   };
 };
@@ -154,6 +180,30 @@ export function MetricsPanel() {
             value={
               metrics
                 ? `${metrics.metrics.consistencyMismatchRate.ratePct}% (${metrics.metrics.consistencyMismatchRate.mismatches}/${metrics.metrics.consistencyMismatchRate.checks})`
+                : "-"
+            }
+          />
+          <MetricItem
+            label="Prefetch auto"
+            value={
+              metrics
+                ? `${metrics.metrics.prefetchTransitionByMode.auto.avgMs}ms (${metrics.metrics.prefetchTransitionByMode.auto.count})`
+                : "-"
+            }
+          />
+          <MetricItem
+            label="Prefetch true"
+            value={
+              metrics
+                ? `${metrics.metrics.prefetchTransitionByMode.true.avgMs}ms (${metrics.metrics.prefetchTransitionByMode.true.count})`
+                : "-"
+            }
+          />
+          <MetricItem
+            label="Prefetch false"
+            value={
+              metrics
+                ? `${metrics.metrics.prefetchTransitionByMode.false.avgMs}ms (${metrics.metrics.prefetchTransitionByMode.false.count})`
                 : "-"
             }
           />
