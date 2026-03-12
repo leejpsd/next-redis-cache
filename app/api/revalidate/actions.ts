@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { getRedisClient } from "@/lib/redis-client";
+import { incMetric, observeInvalidationLatency } from "@/lib/metrics";
 import {
   isTimestampWithinSkew,
   verifyWebhookSignature,
@@ -57,6 +58,7 @@ async function registerWebhookNonce(webhookId: string): Promise<boolean> {
 }
 
 export async function handleWebhook(req: NextRequest): Promise<NextResponse> {
+  const start = Date.now();
   const requestId = req.headers.get("x-request-id") || randomUUID();
   const forwardedFor = req.headers.get("x-forwarded-for") || "";
   const ip = forwardedFor.split(",")[0]?.trim() || "unknown";
@@ -67,6 +69,7 @@ export async function handleWebhook(req: NextRequest): Promise<NextResponse> {
         reason: "too_many_requests",
         ip,
       });
+      incMetric("revalidate.rejected");
       return NextResponse.json(
         { status: 429, reason: "too many requests", requestId },
         { status: 429 }
@@ -77,6 +80,7 @@ export async function handleWebhook(req: NextRequest): Promise<NextResponse> {
       reason: "rate_limit_unavailable",
       error: error instanceof Error ? error.message : String(error),
     });
+    incMetric("revalidate.error");
     return NextResponse.json(
       { status: 503, reason: "rate-limit unavailable", requestId },
       { status: 503 }
@@ -97,6 +101,7 @@ export async function handleWebhook(req: NextRequest): Promise<NextResponse> {
       ip,
       topic,
     });
+    incMetric("revalidate.rejected");
     return NextResponse.json(
       { status: 401, reason: "invalid secret", requestId },
       { status: 401 }
@@ -108,6 +113,7 @@ export async function handleWebhook(req: NextRequest): Promise<NextResponse> {
       reason: "not_product_topic",
       topic,
     });
+    incMetric("revalidate.rejected");
     return NextResponse.json(
       {
         status: 400,
@@ -124,6 +130,7 @@ export async function handleWebhook(req: NextRequest): Promise<NextResponse> {
       topic,
       timestamp,
     });
+    incMetric("revalidate.rejected");
     return NextResponse.json(
       { status: 401, reason: "invalid timestamp", requestId },
       { status: 401 }
@@ -135,6 +142,7 @@ export async function handleWebhook(req: NextRequest): Promise<NextResponse> {
       reason: "invalid_webhook_id",
       topic,
     });
+    incMetric("revalidate.rejected");
     return NextResponse.json(
       { status: 401, reason: "invalid webhook id", requestId },
       { status: 401 }
@@ -156,6 +164,7 @@ export async function handleWebhook(req: NextRequest): Promise<NextResponse> {
       topic,
       webhookId,
     });
+    incMetric("revalidate.rejected");
     return NextResponse.json(
       { status: 401, reason: "invalid signature", requestId },
       { status: 401 }
@@ -169,6 +178,7 @@ export async function handleWebhook(req: NextRequest): Promise<NextResponse> {
         reason: "replayed_webhook_id",
         webhookId,
       });
+      incMetric("revalidate.rejected");
       return NextResponse.json(
         { status: 401, reason: "replayed webhook id", requestId },
         { status: 401 }
@@ -180,6 +190,7 @@ export async function handleWebhook(req: NextRequest): Promise<NextResponse> {
       error: error instanceof Error ? error.message : String(error),
       webhookId,
     });
+    incMetric("revalidate.error");
     return NextResponse.json(
       { status: 503, reason: "nonce store unavailable", requestId },
       { status: 503 }
@@ -193,6 +204,8 @@ export async function handleWebhook(req: NextRequest): Promise<NextResponse> {
     topic,
     webhookId,
   });
+  incMetric("revalidate.accepted");
+  observeInvalidationLatency(Date.now() - start);
 
   return NextResponse.json(
     {
