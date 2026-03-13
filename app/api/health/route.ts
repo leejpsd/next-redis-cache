@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
-import { checkRedisPing } from "@/redis-handler";
 import { getMetricSnapshot } from "@/lib/metrics";
 
 export async function GET(): Promise<NextResponse> {
   const now = Date.now();
-  const redis = await checkRedisPing();
+  const redis = await (async () => {
+    try {
+      const { checkRedisPing } = await import("@/redis-handler");
+      return await checkRedisPing();
+    } catch {
+      return { ok: false, latencyMs: -1 };
+    }
+  })();
   const ok = redis.ok;
   const metrics = getMetricSnapshot();
 
