@@ -1,0 +1,141 @@
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 0,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "ALB 5XX (sum)",
+        "view": "timeSeries",
+        "stacked": false,
+        "metrics": [
+          [
+            "AWS/ApplicationELB",
+            "HTTPCode_ELB_5XX_Count",
+            "LoadBalancer",
+            "${ALB_ARN_SUFFIX}",
+            { "stat": "Sum", "label": "ALB 5XX" }
+          ],
+          [
+            "AWS/ApplicationELB",
+            "HTTPCode_Target_5XX_Count",
+            "LoadBalancer",
+            "${ALB_ARN_SUFFIX}",
+            "TargetGroup",
+            "${TARGET_GROUP_ARN_SUFFIX}",
+            { "stat": "Sum", "label": "Target 5XX" }
+          ]
+        ],
+        "period": 60,
+        "region": "${AWS_REGION}"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12,
+      "y": 0,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "ALB TargetResponseTime p95",
+        "view": "timeSeries",
+        "stacked": false,
+        "metrics": [
+          [
+            "AWS/ApplicationELB",
+            "TargetResponseTime",
+            "LoadBalancer",
+            "${ALB_ARN_SUFFIX}",
+            "TargetGroup",
+            "${TARGET_GROUP_ARN_SUFFIX}",
+            { "stat": "p95", "label": "p95" }
+          ]
+        ],
+        "period": 60,
+        "region": "${AWS_REGION}"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 6,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "ECS CPU / Memory",
+        "view": "timeSeries",
+        "stacked": false,
+        "metrics": [
+          [
+            "AWS/ECS",
+            "CPUUtilization",
+            "ClusterName",
+            "${ECS_CLUSTER_NAME}",
+            "ServiceName",
+            "${ECS_SERVICE_NAME}",
+            { "stat": "Average", "label": "CPU%" }
+          ],
+          [
+            "AWS/ECS",
+            "MemoryUtilization",
+            "ClusterName",
+            "${ECS_CLUSTER_NAME}",
+            "ServiceName",
+            "${ECS_SERVICE_NAME}",
+            { "stat": "Average", "label": "Memory%" }
+          ]
+        ],
+        "period": 60,
+        "region": "${AWS_REGION}"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12,
+      "y": 6,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "title": "App Metrics (EMF/Custom)",
+        "view": "timeSeries",
+        "stacked": false,
+        "metrics": [
+          [
+            "NextRedisCacheDemo",
+            "RedisErrors",
+            "Service",
+            "${ECS_SERVICE_NAME}",
+            { "stat": "Sum", "label": "Redis Errors" }
+          ],
+          [
+            "NextRedisCacheDemo",
+            "InvalidationLatencyMs",
+            "Service",
+            "${ECS_SERVICE_NAME}",
+            { "stat": "p95", "label": "Invalidation p95(ms)" }
+          ],
+          [
+            "NextRedisCacheDemo",
+            "ConsistencyMismatchRate",
+            "Service",
+            "${ECS_SERVICE_NAME}",
+            { "stat": "Average", "label": "Mismatch Rate(%)" }
+          ],
+          [
+            "NextRedisCacheDemo",
+            "PrefetchTransitionMs",
+            "Service",
+            "${ECS_SERVICE_NAME}",
+            "Mode",
+            "auto",
+            { "stat": "Average", "label": "Prefetch auto avg(ms)" }
+          ]
+        ],
+        "period": 60,
+        "region": "${AWS_REGION}"
+      }
+    }
+  ]
+}
