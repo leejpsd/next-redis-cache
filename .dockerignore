@@ -1,0 +1,9 @@
+.git
+.gitignore
+.next
+coverage
+node_modules
+npm-debug.log*
+Dockerfile
+AGENTS.md
+docs

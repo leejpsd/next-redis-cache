@@ -12,8 +12,10 @@ function isPrefetchMode(mode: string): mode is PrefetchMode {
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const body = (await req.json().catch(() => ({}))) as PrefetchPayload;
+  const mode = body.mode;
+  const latencyMs = body.latencyMs;
 
-  if (!isPrefetchMode(body.mode ?? "") || typeof body.latencyMs !== "number") {
+  if (typeof mode !== "string" || !isPrefetchMode(mode) || typeof latencyMs !== "number") {
     return NextResponse.json(
       {
         status: "bad_request",
@@ -23,12 +25,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  observePrefetchTransition(body.mode, body.latencyMs);
+  observePrefetchTransition(mode, latencyMs);
 
   return NextResponse.json({
     status: "ok",
-    mode: body.mode,
-    latencyMs: body.latencyMs,
+    mode,
+    latencyMs,
     metrics: getMetricSnapshot(),
   });
 }
