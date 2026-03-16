@@ -1,0 +1,11 @@
+aws_region                  = "ap-northeast-2"
+project_name                = "next-redis-cache-demo"
+environment                 = "staging"
+vpc_id                      = "vpc-xxxxxxxx"
+public_subnet_ids           = ["subnet-public-a", "subnet-public-c"]
+private_subnet_ids          = ["subnet-private-a", "subnet-private-c"]
+ecr_image_uri               = "123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/next-redis-cache-demo:latest"
+app_base_url                = "https://demo.example.com"
+revalidation_secret_arn     = "arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:revalidation"
+webhook_signing_secret_arn  = "arn:aws:secretsmanager:ap-northeast-2:123456789012:secret:webhook"
+certificate_arn             = "arn:aws:acm:ap-northeast-2:123456789012:certificate/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
