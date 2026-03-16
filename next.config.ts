@@ -1,11 +1,13 @@
 import type { NextConfig } from "next";
 
 const hasRedisUrl = Boolean(process.env.REDIS_URL);
+const enableRedisCacheHandler =
+  hasRedisUrl && process.env.DISABLE_REDIS_CACHE_HANDLER !== "true";
 
 const nextConfig: NextConfig = {
   output: "standalone",
   // 여기서 Redis 핸들러를 default 또는 remote에 붙임
-  cacheHandlers: hasRedisUrl
+  cacheHandlers: enableRedisCacheHandler
     ? {
         // 전체 서버 캐시를 Redis로 공유하고 싶다면:
         default: require.resolve("./redis-handler.cjs"),
