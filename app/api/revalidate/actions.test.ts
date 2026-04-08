@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { handleWebhook } from "./actions";
 import { revalidateTag } from "next/cache";
 import { getRedisClient } from "@/lib/redis-client";
+import { getRuntimeIdentity } from "@/lib/runtime-context";
 import {
   isTimestampWithinSkew,
   verifyWebhookSignature,
@@ -26,6 +27,10 @@ vi.mock("@/lib/env", () => ({
 
 vi.mock("@/lib/redis-client", () => ({
   getRedisClient: vi.fn(),
+}));
+
+vi.mock("@/lib/runtime-context", () => ({
+  getRuntimeIdentity: vi.fn(),
 }));
 
 vi.mock("@/lib/webhook-signature", () => ({
@@ -81,6 +86,15 @@ describe("POST /api/revalidate 보안 분기", () => {
       expire,
       set,
     } as unknown as Awaited<ReturnType<typeof getRedisClient>>);
+    vi.mocked(getRuntimeIdentity).mockReturnValue({
+      instanceId: "task-a",
+      taskId: "task-a",
+      hostname: "host-a",
+      pid: 123,
+      bootId: "boot-a",
+      region: "ap-northeast-2",
+      nodeEnv: "test",
+    });
 
     incr.mockResolvedValue(1);
     expire.mockResolvedValue(1);
@@ -169,6 +183,7 @@ describe("POST /api/revalidate 보안 분기", () => {
 
     expect(res.status).toBe(202);
     expect(json.revalidated).toBe(true);
+    expect(json.runtime.instanceId).toBe("task-a");
     expect(revalidateTag).toHaveBeenCalledWith("random-user", { expire: 0 });
   });
 });

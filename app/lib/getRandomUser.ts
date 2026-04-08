@@ -1,4 +1,5 @@
 import { cacheLife, cacheTag } from "next/cache";
+import { getRuntimeIdentity, type RuntimeIdentity } from "@/lib/runtime-context";
 
 const RANDOM_USER_URL = "https://randomuser.me/api";
 const REQUEST_TIMEOUT_MS = 4000;
@@ -87,6 +88,7 @@ type RandomUserPayload = {
   }>;
   fetchedAt: number;
   source: "origin" | "fallback";
+  generatedBy: RuntimeIdentity;
 };
 
 function isRetryableStatus(status: number): boolean {
@@ -114,6 +116,7 @@ async function fetchRandomUserFromOrigin(): Promise<RandomUserPayload> {
         ...(await response.json()),
         fetchedAt: Date.now(),
         source: "origin",
+        generatedBy: getRuntimeIdentity(),
       } as RandomUserPayload;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
@@ -134,6 +137,7 @@ function getFallbackRandomUser(): RandomUserPayload {
     ...FALLBACK_RANDOM_USER_RESPONSE,
     fetchedAt: Date.now(),
     source: "fallback",
+    generatedBy: getRuntimeIdentity(),
   };
 }
 

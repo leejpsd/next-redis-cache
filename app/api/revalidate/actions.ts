@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { getRedisClient } from "@/lib/redis-client";
 import { incMetric, observeInvalidationLatency } from "@/lib/metrics";
+import { getRuntimeIdentity } from "@/lib/runtime-context";
 import {
   isTimestampWithinSkew,
   verifyWebhookSignature,
@@ -197,12 +198,16 @@ export async function handleWebhook(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  const runtime = getRuntimeIdentity();
   revalidateTag("random-user", { expire: 0 });
 
   logRevalidateEvent(requestId, "revalidate.accepted", {
     tag: "random-user",
     topic,
     webhookId,
+    runtime,
+    startedAt: start,
+    completedAt: Date.now(),
   });
   incMetric("revalidate.accepted");
   observeInvalidationLatency(Date.now() - start);
@@ -214,6 +219,7 @@ export async function handleWebhook(req: NextRequest): Promise<NextResponse> {
       tag: "random-user",
       requestId,
       now: Date.now(),
+      runtime,
     },
     { status: 202 }
   );

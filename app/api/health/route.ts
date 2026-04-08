@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getMetricSnapshot } from "@/lib/metrics";
+import { getRuntimeIdentity } from "@/lib/runtime-context";
 
 export async function GET(): Promise<NextResponse> {
   const now = Date.now();
@@ -13,10 +14,12 @@ export async function GET(): Promise<NextResponse> {
   })();
   const ok = redis.ok;
   const metrics = getMetricSnapshot();
+  const runtime = getRuntimeIdentity();
 
   const payload = {
     status: ok ? "ok" : "degraded",
     now,
+    runtime,
     checks: {
       redis: {
         ok: redis.ok,
