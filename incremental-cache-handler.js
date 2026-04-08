@@ -14,8 +14,11 @@ const {
 const ENTRY_KEY_PREFIX = "next-incremental:entry:";
 const TAG_META_PREFIX = "next-incremental:tag:";
 
+const useMemoryFallback = process.env.CACHE_HANDLER_FALLBACK === "memory";
 let redisClient = null;
 let connectPromise = null;
+const memoryEntries = new Map();
+const memoryTagStates = new Map();
 
 function entryKey(key) {
   return `${ENTRY_KEY_PREFIX}${key}`;
@@ -26,6 +29,10 @@ function tagMetaKey(tag) {
 }
 
 function getRedisUrl() {
+  if (useMemoryFallback) {
+    return null;
+  }
+
   const redisUrl = process.env.REDIS_URL;
   if (!redisUrl) {
     throw new Error(
@@ -36,6 +43,7 @@ function getRedisUrl() {
 }
 
 function getClient() {
+  if (useMemoryFallback) return null;
   if (redisClient) return redisClient;
 
   redisClient = createClient({
@@ -55,6 +63,7 @@ function getClient() {
 
 async function connectClient() {
   const client = getClient();
+  if (!client) return null;
   if (client.isOpen) return client;
 
   if (!connectPromise) {
@@ -189,6 +198,10 @@ function isTagStateExpired(tagState, lastModified, isFetch) {
 async function readTagStates(client, tags) {
   if (tags.length === 0) return [];
 
+  if (!client) {
+    return tags.map((tag) => memoryTagStates.get(tag) || null);
+  }
+
   const values = await client.mGet(tags.map(tagMetaKey));
   return values.map((value) => {
     if (!value) return null;
@@ -212,7 +225,9 @@ class IncrementalRedisCacheHandler {
   async get(cacheKey, ctx) {
     try {
       const client = await connectClient();
-      const stored = await client.get(entryKey(cacheKey));
+      const stored = client
+        ? await client.get(entryKey(cacheKey))
+        : memoryEntries.get(entryKey(cacheKey));
       if (!stored) return null;
 
       const parsed = deserializeCacheRecord(stored);
@@ -248,9 +263,13 @@ class IncrementalRedisCacheHandler {
         value: data,
       };
 
-      await client.set(entryKey(cacheKey), serializeCacheRecord(record), {
-        EX: normalizeTtlSeconds(data, ctx),
-      });
+      if (client) {
+        await client.set(entryKey(cacheKey), serializeCacheRecord(record), {
+          EX: normalizeTtlSeconds(data, ctx),
+        });
+      } else {
+        memoryEntries.set(entryKey(cacheKey), serializeCacheRecord(record));
+      }
     } catch (err) {
       console.error("[Incremental Redis CacheHandler] set() error:", err.message);
     }
@@ -273,13 +292,20 @@ class IncrementalRedisCacheHandler {
           expired: now,
         };
 
-    await Promise.all(
-      normalizedTags.map((tag) =>
-        client.set(tagMetaKey(tag), JSON.stringify(payload), {
-          EX: CACHE_ONE_YEAR_SECONDS,
-        })
-      )
-    );
+    if (client) {
+      await Promise.all(
+        normalizedTags.map((tag) =>
+          client.set(tagMetaKey(tag), JSON.stringify(payload), {
+            EX: CACHE_ONE_YEAR_SECONDS,
+          })
+        )
+      );
+      return;
+    }
+
+    normalizedTags.forEach((tag) => {
+      memoryTagStates.set(tag, payload);
+    });
   }
 
   resetRequestCache() {}
