@@ -19,9 +19,12 @@ function markNavigation(mode: PrefetchMode) {
 
 export function PrefetchLab() {
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 shadow-lg">
-      <h3 className="text-sm font-semibold text-slate-100">Prefetch Lab</h3>
-      <p className="mt-1 text-xs text-slate-400">
+    <section className="glass-card equal-card rounded-[1.75rem] p-5 sm:p-6">
+      <p className="eyebrow">Navigation Lab</p>
+      <h3 className="mt-2 text-lg font-semibold tracking-[-0.03em] text-stone-950">
+        Prefetch comparison
+      </h3>
+      <p className="mt-2 text-sm leading-6 text-stone-600">
         동일 페이지 이동을 prefetch 정책별로 실행해 전환 지연을 수집합니다.
       </p>
 
@@ -29,7 +32,7 @@ export function PrefetchLab() {
         <Link
           href="/prefetch-target?mode=auto"
           onClick={() => markNavigation("auto")}
-          className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-100 hover:bg-slate-700"
+          className="rounded-2xl border border-stone-300/80 bg-white/85 px-4 py-3 text-sm font-medium text-stone-800 transition hover:border-stone-400 hover:bg-white"
         >
           auto (기본)
         </Link>
@@ -38,7 +41,7 @@ export function PrefetchLab() {
           href="/prefetch-target?mode=true"
           prefetch
           onClick={() => markNavigation("true")}
-          className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-100 hover:bg-slate-700"
+          className="rounded-2xl border border-stone-300/80 bg-white/85 px-4 py-3 text-sm font-medium text-stone-800 transition hover:border-stone-400 hover:bg-white"
         >
           prefetch=true
         </Link>
@@ -47,7 +50,7 @@ export function PrefetchLab() {
           href="/prefetch-target?mode=false"
           prefetch={false}
           onClick={() => markNavigation("false")}
-          className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-100 hover:bg-slate-700"
+          className="rounded-2xl border border-stone-300/80 bg-white/85 px-4 py-3 text-sm font-medium text-stone-800 transition hover:border-stone-400 hover:bg-white"
         >
           prefetch=false
         </Link>
