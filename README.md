@@ -1,600 +1,307 @@
-# 🚀 Next.js 16 + Redis Cache Demo
+# Next.js 16 + Redis Cache Demo
 
-Next.js 16의 **Cache Components** + **cacheHandlers**를 활용해 Redis에 통합 데이터 캐시를 구축하는 데모 프로젝트입니다.
+Next.js를 AWS 셀프호스팅 멀티 인스턴스/멀티 태스크 환경에서 운영할 때, Redis 기반 공유 캐시로 ISR/SSG/Cache Components를 실용적으로 유지하는 방법을 검증하는 운영형 포트폴리오 프로젝트다.
 
-> AWS Self-hosting 환경에서 다중 인스턴스 간 캐시 불일치 문제를 해결하는 패턴을 다룹니다.
+> 목표는 "캐시를 붙였다"가 아니라, 다중 인스턴스 환경에서 재검증 가능성과 캐시 일관성을 확보하고, 그 결과로 원본 호출량·응답시간·인프라 자원 사용량을 얼마나 줄였는지 수치로 증명하는 것이다.
 
-![Next.js](https://img.shields.io/badge/Next.js-16.0.3-black?logo=next.js)
+![Next.js](https://img.shields.io/badge/Next.js-16.2.2-black?logo=next.js)
 ![React](https://img.shields.io/badge/React-19.2.0-61DAFB?logo=react)
 ![Redis](https://img.shields.io/badge/Redis-5.10.0-DC382D?logo=redis)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss)
 
----
+## 프로젝트 개요
 
-## 📋 목차
+기본 Next.js self-hosting에서는 ISR을 포함한 서버 캐시가 인스턴스별 로컬 파일시스템과 메모리에 저장된다. 그래서 ALB 뒤에 여러 앱 인스턴스나 ECS task가 있을 때, 같은 build를 쓰더라도 캐시와 무효화가 인스턴스마다 갈라질 수 있다.
 
-- [개요](#-개요)
-- [주요 기능](#-주요-기능)
-- [기술 스택](#-기술-스택)
-- [시작하기](#-시작하기)
-- [프로젝트 구조](#-프로젝트-구조)
-- [핵심 개념](#-핵심-개념)
-- [캐시 무효화 패턴](#-캐시-무효화-패턴)
-- [API 엔드포인트](#-api-엔드포인트)
-- [Redis 키 구조](#-redis-키-구조)
-- [주의사항](#-주의사항)
-- [트러블슈팅](#-트러블슈팅)
-- [참고 자료](#-참고-자료)
+이 프로젝트는 아래 구조를 기준으로 한다.
 
----
-
-## 🎯 개요
-
-### 문제 상황
-
-Next.js를 AWS + ALB + EC2 다중 인스턴스 환경에서 Self-hosting할 때:
-
-```
+```text
             [Client]
-               ↓
-        [ALB (로드 밸런서)]
-   ↓           ↓           ↓
-[EC2 #1]   [EC2 #2]   [EC2 #3]
-(Next.js)  (Next.js)  (Next.js)
-  캐시A      캐시B      캐시C    ← 각자 다른 캐시!
+               |
+            [ALB]
+      /---------+---------\
+ [Next #1]  [Next #2]  [Next #3]
+      \---------+---------/
+               |
+            [Redis]
 ```
 
-- 기존 Data Cache/ISR은 인스턴스별 로컬 저장소(파일시스템/메모리)에 저장
-- Webhook으로 `revalidateTag`를 호출해도 한 인스턴스만 무효화
-- 유저마다 다른 데이터를 보게 되는 문제 발생
+핵심 아이디어:
 
-### 해결 방안
+- ISR/SSG/Cache Components 각각이 어떤 캐시 계층을 쓰는지 분리해서 본다.
+- `cacheHandler`와 `cacheHandlers`를 구분해, ISR과 Cache Components를 각각 공유 캐시로 연결하는 방향을 검증한다.
+- Next 16의 권장 모델은 `use cache` / `cacheLife` / `cacheTag`를 기준으로 사용하되, 이전 모델의 `fetch(..., { next: { revalidate, tags } })`도 실제로 어떻게 동작하는지 함께 검증한다.
+- Redis를 공유 캐시 저장소와 무효화 조정 계층으로 사용한다.
+- 결과를 TTFB, p95/p99, origin fetch 감소, 일관성, 운영 비용 관점으로 비교한다.
 
-```
-            [Client]
-               ↓
-        [ALB (로드 밸런서)]
-   ↓           ↓           ↓
-[EC2 #1]   [EC2 #2]   [EC2 #3]
-(Next.js)  (Next.js)  (Next.js)
-    ↘          ↓          ↙
-         [Redis] ← 단일 캐시 저장소!
-```
+## 현재 상태
 
-- Next.js 16의 `cacheHandlers`로 Cache Components 계층을 Redis에 연결
-- 모든 인스턴스가 같은 Redis를 바라보므로 캐시 일관성 보장
+2026-04-08 기준으로 아래 항목을 확인했다.
 
----
+- Next.js `16.2.2`로 업그레이드 완료
+- Redis 기반 `cacheHandler` 초기 구현 추가
+- `proxy.ts` 기반 request correlation ID 주입 적용
+- webhook 인증, nonce, rate limit, structured log 구현
+- `/api/health`, `/api/metrics/*` 구현
+- Redis cache handler 단위/통합 테스트 통과
+- `lint`, `typecheck`, `test`, `build` 로컬 검증 완료
 
-## ✨ 주요 기능
+캐시 모델 검증 결과:
 
-- ✅ **Redis 기반 통합 캐시** - `use cache` + `cacheHandlers`로 Redis에 캐시 저장
-- ✅ **태그 기반 캐시 관리** - `cacheTag`로 태그 지정, `revalidateTag`로 무효화
-- ✅ **Soft Stale vs Hard Stale** - 두 가지 캐시 무효화 전략 데모
-- ✅ **Webhook 시뮬레이션** - 외부 시스템에서 캐시 무효화 트리거
-- ✅ **실시간 캐시 상태 UI** - FRESH / STALE / HARD 상태 시각화
+- `cacheComponents: true`에서 `export const revalidate = 60`은 빌드 에러로 막힌다.
+- `await fetch(url, { next: { revalidate: 60 } })`는 production build 기준으로 캐시됨을 확인했다.
+- `use cache` + `cacheLife()` 역시 production build 기준으로 캐시됨을 확인했다.
+- 즉, 이 프로젝트는 권장 모델은 `use cache`를 기준으로 사용하되, fetch 기반 캐시도 여전히 설명하고 비교한다.
 
----
+현재 구현 범위에 대한 중요한 메모:
 
-## 🛠 기술 스택
+- 현재 저장소는 `cacheHandlers` 중심 구현에서 시작했지만, 이제 `cacheHandler` 초기 구현도 추가되어 ISR/route cache 공유 실험의 기반이 생겼다.
+- Next.js 공식 문서 기준으로 ISR과 route handler 응답 캐시는 `cacheHandler`(단수) 영역이다.
+- 다만 "멀티 인스턴스에서 ISR/SSG를 Redis로 안정적으로 공유"라는 목표를 입증하려면, 현재 초기 구현에 대해 실제 ECS 멀티 태스크 환경 검증과 지표 수집이 추가로 필요하다.
 
-| 구분      | 기술               | 버전   |
-| --------- | ------------------ | ------ |
-| Framework | Next.js            | 16.0.3 |
-| Runtime   | React              | 19.2.0 |
-| Language  | TypeScript         | 5.x    |
-| Cache     | Redis (node-redis) | 5.10.0 |
-| Styling   | Tailwind CSS       | 4.x    |
-| Container | Docker             | -      |
-
----
-
-## 🚀 시작하기
-
-### 1. 사전 요구사항
-
-- Node.js 20.9+
-- Docker Desktop
-- pnpm / npm / yarn
-
-### 2. Docker Desktop 설치
-
-Redis를 로컬에서 쉽게 실행하기 위해 Docker를 사용합니다.
-
-#### macOS
+검증 기준:
 
 ```bash
-# Homebrew로 설치 (권장)
-brew install --cask docker
-
-# 또는 공식 사이트에서 다운로드
-# https://www.docker.com/products/docker-desktop/
+nvm use
+npm run lint
+npm run typecheck
+npm test
+DISABLE_REDIS_CACHE_HANDLER=true npm run build
 ```
 
-설치 후 **Docker Desktop 앱을 실행**해주세요. 메뉴바에 🐳 고래 아이콘이 보이면 준비 완료!
+주의:
 
-#### Windows
+- 이 프로젝트는 Node.js `20.9+`가 필요하다.
+- 로컬 기본 셸이 낮은 Node 버전을 가리키면 Next 16, Vitest 4, ESLint 9가 함께 깨질 수 있다.
+- `.nvmrc`는 현재 검증에 사용한 Node 버전을 고정한다.
 
-1. [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/) 다운로드
-2. 설치 파일 실행 후 안내에 따라 설치
-3. **WSL 2 설치가 필요**할 수 있어요 - 설치 중 안내가 나오면 따라하세요
-4. 설치 완료 후 Docker Desktop 실행
-5. 시스템 트레이에 🐳 고래 아이콘이 보이면 준비 완료!
+## 아직 부족한 점
 
-#### 설치 확인
+지금 상태는 운영형 베이스는 갖췄지만, 최종 포트폴리오 목적에 맞추려면 아래 작업이 더 필요하다.
 
-터미널(또는 PowerShell)에서 아래 명령어로 설치가 잘 됐는지 확인:
+- ISR/route cache용 `cacheHandler`(singular) 실환경 검증
+  - 초기 구현은 추가됐지만, 멀티 태스크 환경에서의 일관성 검증과 장애 실험이 아직 없다
+- `app/lib/getRandomUser.ts`를 운영형 fetch 샘플로 고도화
+  - `cacheLife`, timeout, retry, fallback, fetch policy 정리 필요
+- 메트릭 저장소가 아직 프로세스 메모리 중심
+  - 멀티 인스턴스 전역 집계 관점 보강 필요
+- README가 실험 결과와 운영 지표를 아직 담지 못함
+- 부하 테스트, 장애 실험, 비용 추정, 실험 비교 문서가 템플릿 단계
+- health/build 과정에서 Redis 미연결 시 노이즈 로그가 남음
+
+## 핵심 기능
+
+- Redis 기반 공유 캐시 실험 베이스
+- 태그 기반 무효화
+- soft stale / hard expire 구분
+- HMAC 기반 webhook 검증
+- nonce replay 방지
+- Redis 기반 rate limit
+- readiness/liveness health endpoint
+- consistency / invalidation / prefetch metrics
+- ECS + ALB + ElastiCache Terraform 스택
+- GitHub Actions 기반 CI / staging / production 배포 워크플로
+
+## 기술 스택
+
+| 구분 | 기술 | 비고 |
+| --- | --- | --- |
+| Framework | Next.js 16.2.2 | App Router, self-hosting |
+| UI | React 19.2.0 | App Router |
+| Language | TypeScript | strict mode |
+| Cache | Redis 5.x | 공유 캐시 및 무효화 조정 계층 |
+| Infra | AWS ECS / ALB / ElastiCache | Terraform |
+| CI/CD | GitHub Actions | CI, staging, production |
+| Test | Vitest | unit / integration |
+
+## 시작하기
+
+### 1. 요구사항
+
+- Node.js `20.9+`
+- npm
+- Docker
+- 로컬 Redis 또는 `DISABLE_REDIS_CACHE_HANDLER=true` 빌드 전략
+
+### 2. 의존성 설치
 
 ```bash
-docker --version
-# Docker version 24.x.x, build xxxxx 같은 출력이 나오면 성공!
-```
-
-> 💡 **Tip**: Docker Desktop이 실행 중이어야 `docker` 명령어가 동작해요!
-> 고래 아이콘이 "Docker Desktop is running" 상태인지 확인하세요.
-
-### 3. Redis 실행
-
-```bash
-# Redis 컨테이너 실행
-docker run --name next-redis -p 6379:6379 -d redis
-
-# 실행 확인
-docker ps
-
-# Redis CLI 접속 (선택)
-docker exec -it next-redis redis-cli
-```
-
-> 🔄 **재시작 시**: 컴퓨터를 껐다 켜면 Redis 컨테이너도 멈춰요.
-> `docker start next-redis` 명령어로 다시 시작할 수 있어요.
-
-### 4. 프로젝트 설치 및 실행
-
-```bash
-# 의존성 설치
+nvm use
 npm install
-
-# 개발 서버 실행
-npm run dev
 ```
 
-### 5. 접속
+### 3. 환경변수 준비
 
-브라우저에서 [http://localhost:3000](http://localhost:3000) 접속
-
----
-
-## 📁 프로젝트 구조
-
-```
-next-redis-cache-demo/
-├── app/
-│   ├── action/
-│   │   └── actions.ts              # Server Actions (캐시 무효화)
-│   ├── api/
-│   │   └── revalidate/
-│   │       ├── actions.ts          # Webhook 핸들러 로직
-│   │       └── route.ts            # Route Handler (POST)
-│   ├── components/
-│   │   ├── CacheControls.tsx       # 캐시 컨트롤 패널 (Client Component)
-│   │   └── UserProfile.tsx         # 유저 프로필 카드 (Server Component)
-│   ├── lib/
-│   │   └── getRandomUser.ts        # "use cache" 적용된 데이터 fetcher
-│   ├── globals.css                 # Tailwind CSS
-│   ├── layout.tsx                  # Root Layout
-│   └── page.tsx                    # 메인 페이지
-├── public/                         # 정적 파일
-├── redis-handler.ts                # Redis CacheHandler 구현
-├── next.config.ts                  # Next.js 설정 (cacheHandlers)
-├── package.json
-├── tsconfig.json
-└── README.md
-```
-
----
-
-## 💡 핵심 개념
-
-### Cache Components vs 기존 Data Cache
-
-| 구분          | 기존 Data Cache/ISR               | Cache Components                  |
-| ------------- | --------------------------------- | --------------------------------- |
-| 활성화        | 기본 활성화                       | `cacheComponents: true`           |
-| 저장소        | 로컬 파일시스템/메모리            | 인메모리 LRU → **Redis (커스텀)** |
-| 태그 지정     | `fetch({ next: { tags } })`       | `cacheTag()`                      |
-| 수명 설정     | `fetch({ next: { revalidate } })` | `cacheLife()`                     |
-| 커스텀 핸들러 | `cacheHandler` (단수)             | `cacheHandlers` (복수)            |
-
-### use cache 사용법
-
-```ts
-// app/lib/getRandomUser.ts
-import { cacheTag } from "next/cache";
-
-export async function getRandomUser() {
-  "use cache"; // Cache Components 계층 진입
-
-  cacheTag("random-user"); // 태그 지정
-
-  const res = await fetch("https://randomuser.me/api", {
-    next: { revalidate: 3600, tags: ["posts"] },
-  });
-
-  return { ...(await res.json()), fetchedAt: Date.now() };
-}
-```
-
-### next.config.ts 설정
-
-```ts
-// next.config.ts
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
-  cacheComponents: true, // Cache Components 활성화
-
-  cacheHandlers: {
-    default: require.resolve("./redis-handler.ts"), // Redis 핸들러
-  },
-
-  cacheMaxMemorySize: 0, // 인메모리 캐시 비활성화
-
-  images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "randomuser.me",
-        pathname: "/api/portraits/**",
-      },
-    ],
-  },
-};
-
-export default nextConfig;
-```
-
-### Redis CacheHandler 인터페이스
-
-```js
-// redis-handler.ts
-module.exports = {
-  async get(cacheKey, softTags) { ... },       // 캐시 조회
-  async set(cacheKey, pendingEntry) { ... },   // 캐시 저장
-  async refreshTags() { ... },                 // 태그 새로고침 (no-op)
-  async getExpiration(tags) { ... },           // 태그 만료 시간 조회
-  async updateTags(tags, durations) { ... },   // 태그 기반 무효화
-};
-```
-
----
-
-## 🔄 캐시 무효화 패턴
-
-### 1. Soft Stale (SWR) - Server Action
-
-```ts
-// app/action/actions.ts
-"use server";
-import { revalidateTag } from "next/cache";
-
-export async function invalidateRandomUser() {
-  revalidateTag("random-user", "max"); // Soft Stale
-}
-```
-
-- 기존 캐시를 stale 처리
-- 다음 요청 시 기존 캐시를 먼저 반환하면서 백그라운드에서 갱신
-- **사용처**: 약간의 지연이 허용되는 콘텐츠
-
-### 2. Hard Stale (즉시 만료) - Webhook
-
-```ts
-// app/api/revalidate/actions.ts
-import { revalidateTag } from "next/cache";
-
-export async function handleWebhook(req: NextRequest) {
-  // ... 인증 로직
-
-  revalidateTag("random-user", { expire: 0 }); // Hard Stale (즉시 만료)
-
-  return NextResponse.json({ revalidated: true });
-}
-```
-
-- 캐시 즉시 삭제
-- 다음 요청 시 새 데이터를 fetch할 때까지 대기
-- **사용처**: Webhook, 외부 시스템 연동
-
-### 비교표
-
-| 함수                                | 호출 위치                    | 동작             | 사용 시나리오        |
-| ----------------------------------- | ---------------------------- | ---------------- | -------------------- |
-| `revalidateTag(tag, "max")`         | Server Action, Route Handler | Soft Stale (SWR) | 콘텐츠 업데이트      |
-| `revalidateTag(tag, { expire: 0 })` | Server Action, Route Handler | Hard Stale       | Webhook              |
-| `updateTag(tag)`                    | **Server Action 전용**       | 즉시 만료 + 대기 | 폼 저장 후 즉시 반영 |
-
-> ⚠️ **주의**: `updateTag`는 Server Action 내에서만 사용 가능합니다.
-> Route Handler에서 호출하면 에러가 발생해요!
-
----
-
-## 🔌 API 엔드포인트
-
-### POST /api/revalidate
-
-외부 시스템(CMS, Webhook 등)에서 캐시를 무효화할 때 사용합니다.
-
-**Request:**
-
-```bash
-TOPIC="random-user/create"
-TIMESTAMP="$(date +%s%3N)"
-WEBHOOK_ID="$(uuidgen)"
-BODY='{"source":"external-webhook"}'
-PAYLOAD="${TIMESTAMP}.${TOPIC}.${WEBHOOK_ID}.${BODY}"
-SIGNATURE="$(printf "%s" "$PAYLOAD" | openssl dgst -sha256 -hmac "$WEBHOOK_SIGNING_SECRET" -hex | sed 's/^.* //')"
-
-curl -X POST "http://localhost:3000/api/revalidate?secret=<REVALIDATION_SECRET>" \
-  -H "content-type: application/json" \
-  -H "topic: ${TOPIC}" \
-  -H "x-webhook-timestamp: ${TIMESTAMP}" \
-  -H "x-webhook-id: ${WEBHOOK_ID}" \
-  -H "x-webhook-signature: ${SIGNATURE}" \
-  --data "$BODY"
-```
-
-**Headers:**
-
-| 헤더                  | 값 예시               | 설명                                      |
-| --------------------- | --------------------- | ----------------------------------------- |
-| `content-type`        | `application/json`    | 요청 본문 타입                             |
-| `topic`               | `random-user/create`  | 무효화 대상 (create/update/delete)         |
-| `x-webhook-timestamp` | `1704067200000`       | 요청 시각(ms). 재전송/지연 공격 방지에 사용 |
-| `x-webhook-id`        | `evt_01hxyz...`       | 웹훅 고유 ID. 재전송(replay) 방지 nonce     |
-| `x-webhook-signature` | `<hmac-sha256-hex>`   | `timestamp.topic.webhookId.body` 기반 HMAC 서명      |
-
-**Query Parameters:**
-
-| 파라미터 | 값          | 설명                               |
-| -------- | ----------- | ---------------------------------- |
-| `secret` | `<REVALIDATION_SECRET>` | 인증 시크릿 (환경변수로 관리 권장) |
-
-**Response:**
-
-```json
-{
-  "status": 202,
-  "revalidated": true,
-  "tag": "random-user",
-  "now": 1704067200000
-}
-```
-
-**주요 에러 응답:**
-
-| status | reason                   | 의미                          |
-| ------ | ------------------------ | ----------------------------- |
-| 400    | `not product topic`      | 지원하지 않는 topic           |
-| 401    | `invalid secret`         | secret 불일치                 |
-| 401    | `invalid timestamp`      | 허용 시간 오차 초과           |
-| 401    | `invalid webhook id`     | webhook id 누락/형식 오류     |
-| 401    | `invalid signature`      | HMAC 서명 검증 실패           |
-| 401    | `replayed webhook id`    | 이미 처리된 webhook id 재사용 |
-| 429    | `too many requests`      | Rate limit 초과               |
-| 503    | `rate-limit unavailable` | Rate limit 저장소 접근 불가   |
-| 503    | `nonce store unavailable`| nonce 저장소 접근 불가        |
-
-**지원하는 topic:**
-
-- `random-user/create`
-- `random-user/update`
-- `random-user/delete`
-
----
-
-## 🗄 Redis 키 구조
-
-### 캐시 엔트리
-
-```
-next-cache:entry:<cacheKey>
-```
-
-저장 형식 (JSON):
-
-```json
-{
-  "value": "<base64 encoded data>",
-  "tags": ["random-user"],
-  "stale": 300,
-  "timestamp": 1704067200000,
-  "expire": 3600,
-  "revalidate": 900
-}
-```
-
-### 태그 인덱스
-
-```
-next-cache:tag:<tagName>
-```
-
-타입: Redis Set  
-값: 해당 태그와 연결된 엔트리 키 목록
-
-### Redis CLI로 확인
-
-```bash
-# 저장된 키 개수
-127.0.0.1:6379> DBSIZE
-
-# 키 목록 조회
-127.0.0.1:6379> SCAN 0 COUNT 10
-
-# 특정 태그의 엔트리들
-127.0.0.1:6379> SMEMBERS next-cache:tag:random-user
-
-# 캐시 엔트리 내용
-127.0.0.1:6379> GET "next-cache:entry:..."
-
-# 전체 초기화
-127.0.0.1:6379> FLUSHDB
-```
-
----
-
-## ⚠️ 주의사항
-
-### Soft Stale vs Hard Stale 구현에 대해
-
-현재 데모의 CacheHandler는 `durations`를 반영해 Soft/Hard를 구분하도록 구현되어 있습니다.
-
-```js
-// redis-handler.ts - updateTags
-async updateTags(tags, durations) {
-  const isHardExpire = durations?.expire === 0;
-  if (isHardExpire) {
-    // Hard: 즉시 삭제
-    await client.del(entryKeys);
-  } else {
-    // Soft: 태그 만료 시각만 기록 (stale 처리)
-    await client.set(tagExpirationKey(tag), Date.now());
-  }
-}
-```
-
-즉:
-1. `revalidateTag("tag", "max")`는 Soft stale 경로를 탑니다.
-2. `revalidateTag("tag", { expire: 0 })`는 Hard expire로 즉시 삭제합니다.
-
-### 환경변수
-
-프로덕션 환경에서는 환경변수를 사용하세요:
+`.env.example`를 기준으로 `.env.local`을 준비한다.
 
 ```env
-# .env.local
 REDIS_URL=redis://localhost:6379
-REVALIDATION_SECRET=your-secret-key
-WEBHOOK_SIGNING_SECRET=your-hmac-secret
+REVALIDATION_SECRET=change-me-to-a-32-char-random-secret
+WEBHOOK_SIGNING_SECRET=change-me-to-another-32-char-random-secret
+APP_BASE_URL=http://localhost:3000
 REVALIDATE_RATE_LIMIT_PER_MINUTE=30
 WEBHOOK_MAX_SKEW_SECONDS=300
 WEBHOOK_NONCE_TTL_SECONDS=600
 ```
 
-```js
-// redis-handler.ts
-const client = createClient({
-  url: process.env.REDIS_URL,
-});
-```
-
----
-
-## 🔧 트러블슈팅
-
-### Redis 연결 실패
-
-```
-Error: connect ECONNREFUSED 127.0.0.1:6379
-```
-
-**해결:**
+### 4. Redis 실행
 
 ```bash
-# Redis 컨테이너 상태 확인
-docker ps -a
-
-# 컨테이너가 없다면 다시 실행
 docker run --name next-redis -p 6379:6379 -d redis
-
-# 컨테이너가 멈춰있다면 재시작
-docker start next-redis
 ```
 
-### 캐시가 적용되지 않음
-
-1. `next.config.ts`에 `cacheComponents: true` 확인
-2. 함수 최상단에 `"use cache"` directive 확인
-3. `cacheTag()`로 태그가 지정되어 있는지 확인
-4. Redis CLI에서 키가 생성되는지 확인
-
-### updateTag가 동작하지 않음
-
-```
-Error: updateTag can only be called from within a Server Action
-```
-
-**해결:** Route Handler에서는 `updateTag` 대신 `revalidateTag(tag, { expire: 0 })` 사용
-
-### Webhook 인증/속도 제한 에러가 발생함
-
-```
-401 invalid signature
-401 invalid timestamp
-401 invalid webhook id
-401 replayed webhook id
-429 too many requests
-```
-
-**해결:**
-
-1. `x-webhook-timestamp`를 요청 직전 ms 단위로 생성했는지 확인
-2. `x-webhook-id`를 요청마다 새 값으로 생성했는지 확인 (재사용 금지)
-3. `x-webhook-signature`가 `timestamp.topic.webhookId.body` 순서로 HMAC 서명됐는지 확인
-4. `WEBHOOK_SIGNING_SECRET` 값이 서버와 발신자에서 동일한지 확인
-5. 짧은 시간에 과도한 호출이 있으면 `REVALIDATE_RATE_LIMIT_PER_MINUTE` 조정
-
-### TypeScript 에러
-
-```ts
-// revalidateTag 두 번째 인자 필수 (Next.js 16)
-revalidateTag("tag"); // ❌ deprecated
-revalidateTag("tag", "max"); // ✅
-```
-
----
-
-## 📚 참고 자료
-
-### 공식 문서
-
-- [Next.js - Cache Components](https://nextjs.org/docs/app/getting-started/cache-components)
-- [Next.js - cacheHandlers](https://nextjs.org/docs/app/api-reference/config/next-config-js/cacheHandlers)
-- [Next.js - use cache directive](https://nextjs.org/docs/app/api-reference/directives/use-cache)
-- [Next.js - revalidateTag](https://nextjs.org/docs/app/api-reference/functions/revalidateTag)
-- [Next.js - updateTag](https://nextjs.org/docs/app/api-reference/functions/updateTag)
-- [Next.js - cacheTag](https://nextjs.org/docs/app/api-reference/functions/cacheTag)
-- [Next.js - cacheLife](https://nextjs.org/docs/app/api-reference/functions/cacheLife)
-
-### 블로그 시리즈
-
-- [Next.js 16 + Redis | AWS Self-hosting 캐시 불일치 해결하기 (1편 · 개념)](https://velog.io/@leejpsd/Next.js-16-Redis-AWS-Self-hosting-캐시-불일치-해결하기-1편-개념)
-- [Next.js 16 + Redis | AWS Self-hosting 캐시 불일치 해결하기 (2편 · 구현)](https://velog.io/@leejpsd/Next.js-16-Redis-AWS-Self-hosting-캐시-불일치-해결하기-2편-구현)
-
----
-
-## 📜 스크립트
+### 5. 앱 실행
 
 ```bash
-# 개발 서버
 npm run dev
-
-# 프로덕션 빌드
-npm run build
-
-# 프로덕션 서버
-npm start
-
-# 린트
-npm run lint
 ```
 
----
+브라우저에서 `http://localhost:3000` 접속.
 
-## 👤 Author
+## 검증 명령어
 
-**Eddy Lee**
+```bash
+npm run lint
+npm run typecheck
+npm test
+DISABLE_REDIS_CACHE_HANDLER=true npm run build
+```
 
-- 블로그: https://velog.io/@leejpsd/posts
-- 이메일: leejpsd@gmail.com
+메모:
+
+- 로컬에서 Redis 없이 `build`만 확인할 때는 `DISABLE_REDIS_CACHE_HANDLER=true`를 권장한다.
+- 실제 Redis 연동 동작은 Redis를 띄운 뒤 `npm run dev` 또는 `npm start`로 확인한다.
+
+## 주요 경로
+
+```text
+app/
+  api/revalidate/          webhook 기반 hard expire
+  api/health/              readiness/liveness
+  api/metrics/             런타임 메트릭 수집
+  components/              데모 UI 및 prefetch 실험 UI
+  lib/getRandomUser.ts     캐시 fetch 샘플
+lib/
+  env.ts                   환경변수 스키마
+  metrics.ts               인메모리 메트릭 집계
+  redis-client.ts          Redis 클라이언트 팩토리
+redis-handler.ts           Next cache handler
+proxy.ts                   request correlation ID 주입
+infra/terraform/           ECR / secrets / app-stack
+ops/                       CloudWatch / deploy 스크립트
+docs/                      실험, 장애, 비용, 학습 문서
+```
+
+## 캐시 전략 요약
+
+### 왜 Redis가 필요한가
+
+Next.js 공식 self-hosting 문서 기준으로 ISR을 포함한 서버 캐시는 기본적으로 각 서버 인스턴스의 로컬 파일시스템에 저장된다. 멀티 인스턴스/멀티 태스크 환경에서는 각 인스턴스가 자기 캐시 사본을 가지므로, 공유 캐시 없이 운영하면 인스턴스마다 stale 상태가 달라질 수 있다.
+
+이 프로젝트는 그 문제를 Redis 기반 공유 캐시로 줄이고, 실제로 자원 사용량과 응답시간이 얼마나 좋아지는지 실험하는 것이 목적이다.
+
+### `cacheHandler` vs `cacheHandlers`
+
+| 설정 | 대상 | 현재 상태 |
+| --- | --- | --- |
+| `cacheHandler` | ISR, route handler 응답, optimized images 등 서버 캐시 | Redis 초기 구현 추가 |
+| `cacheHandlers` | `use cache` / Cache Components | Redis 핸들러 구현 완료 |
+
+### Next 16에서 무엇을 권장하나
+
+`cacheComponents: true`를 사용하는 Next 16에서는 새 권장 모델이 `use cache` 중심이다.
+
+- 권장 중심:
+  - `use cache`
+  - `cacheLife()`
+  - `cacheTag()`
+  - `revalidateTag()`
+  - `updateTag()`
+- 여전히 사용 가능:
+  - `fetch(..., { next: { revalidate: 60 } })`
+  - `fetch(..., { next: { tags: ["sample"] } })`
+- 이 프로젝트에서 실제로 막힌 것:
+  - `export const revalidate = 60`
+    - `cacheComponents: true`에서는 route segment config `revalidate`가 빌드 에러를 발생시킴
+
+즉 이 저장소의 실무 원칙은 아래와 같다.
+
+1. 기본 설계와 신규 구현은 `use cache` 계열을 우선한다.
+2. 기존 모델이나 fetch 단위 캐시가 더 적합한 경우 `fetch next.revalidate/tags`도 사용 가능하다고 설명한다.
+3. route segment `revalidate`는 `cacheComponents: true` 프로젝트에서는 사용하지 않는다.
+
+### 캐시 모델 검증 메모
+
+production 기준 검증 경로:
+
+- `/verify/fetch-revalidate-only`
+- `/verify/use-cache`
+
+검증 결과:
+
+- `fetch next.revalidate only` 경로는 두 번 조회 시 같은 응답을 반환해 캐시됨을 확인했다.
+- `use cache + cacheLife` 경로도 두 번 조회 시 같은 응답을 반환해 캐시됨을 확인했다.
+- 이 검증은 [`scripts/e2e-cache-model-check.mjs`](./scripts/e2e-cache-model-check.mjs) 로 재현 가능하다.
+
+### Soft stale
+
+Server Action에서 `revalidateTag(tag, "max")`를 호출해 stale-while-revalidate 경로를 탄다.
+
+### Hard expire
+
+Webhook이나 외부 동기화 이벤트에서 `revalidateTag(tag, { expire: 0 })`를 호출해 즉시 만료시킨다.
+
+### 현재 구현 포인트
+
+- 캐시 엔트리는 Redis JSON + base64 stream 형태로 저장
+- 태그 인덱스는 Redis Set으로 유지
+- hard expire 시 태그 인덱스를 통해 연결된 엔트리를 삭제
+- soft stale 시 태그 expiration marker만 갱신
+
+## 운영 문서와 산출물
+
+아래 문서들은 포트폴리오 마감 전까지 채워야 하는 핵심 산출물이다.
+
+- [Next.js 16 캐시 심화 노트](./docs/study/nextjs16-cache-deep-dive.md)
+- [SSR vs ISR vs Cache Components 비교](./docs/experiments/ssr-vs-isr-vs-cache-components.md)
+- [BFF vs Direct Client Call 비교](./docs/experiments/bff-vs-direct-client-call.md)
+- [멀티 인스턴스 일관성 before/after](./docs/experiments/multi-instance-consistency-before-after.md)
+- [Prefetch 정책 비교](./docs/experiments/prefetch-policy-comparison.md)
+- [Redis 장애 리포트](./docs/incident/redis-outage-report.md)
+- [App 재시작 장애 리포트](./docs/incident/app-restart-report.md)
+- [Load Test Summary](./docs/load-test/summary.md)
+- [배포/롤백 런북](./docs/ops/runbook-deploy-rollback.md)
+- [비용 추정](./docs/cost-estimate.md)
+
+## 알려진 리스크
+
+- 현재 프로젝트는 목표상 ISR/SSG 공유 캐시까지 다루며, `cacheHandler` 초기 구현까지 추가되었다. 다만 운영 입증은 아직 남아 있다.
+- Redis 장애 시 캐시 핸들러 연결 실패가 응답 경로와 빌드 로그에 노출될 수 있다.
+- 현재 메트릭은 프로세스 메모리 기반이라 멀티 인스턴스 총합 지표로 바로 쓰기 어렵다.
+- fetch 샘플이 아직 운영형 정책을 모두 반영하지 못했다.
+- BFF 트랙과 성능 실험 문서는 아직 구현 전 단계다.
+
+## 공식 자료 기준 확인 사항
+
+Next.js 공식 self-hosting 문서(최종 확인: 2026-04-08) 기준으로 확인한 사실:
+
+1. ISR을 포함한 Next.js server cache는 기본적으로 각 서버 인스턴스의 로컬 파일시스템에 저장된다.
+2. 멀티 인스턴스/컨테이너 환경에서는 각 인스턴스가 자기 캐시 사본을 가진다.
+3. App Router 멀티 인스턴스 환경에서 `revalidateTag()`를 한 인스턴스에서 호출하면 기본적으로 그 인스턴스만 즉시 무효화된다.
+4. ISR과 route response 공유 캐시는 `cacheHandler`(singular)로 다뤄야 하고, `use cache`는 `cacheHandlers`(plural)로 다뤄야 한다.
+5. `cacheComponents: true` 프로젝트에서는 route segment config `revalidate`는 호환되지 않으며, 새 권장 모델은 `use cache` 계열이다.
+
+즉, "멀티 인스턴스에서 ISR 무효화가 한 인스턴스에만 먼저 반영되는 문제"는 공식 문서상 실제 고려사항이 맞다.
+
+## 참고 자료
+
+- https://nextjs.org/docs/app/getting-started/cache-components
+- https://nextjs.org/docs/app/api-reference/directives/use-cache
+- https://nextjs.org/docs/app/api-reference/functions/cacheLife
+- https://nextjs.org/docs/app/api-reference/functions/cacheTag
+- https://nextjs.org/docs/app/api-reference/functions/revalidateTag
+- https://nextjs.org/docs/app/api-reference/functions/updateTag
+- https://nextjs.org/docs/app/api-reference/config/next-config-js/cacheHandlers
+- https://nextjs.org/docs/app/guides/self-hosting
+- https://nextjs.org/docs/app/api-reference/config/next-config-js/incrementalCacheHandlerPath
+- https://nextjs.org/docs/messages/middleware-to-proxy
