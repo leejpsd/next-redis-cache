@@ -115,7 +115,7 @@ function createWebhookSignature({
   body,
   secret,
 }) {
-  const signedPayload = [topic, timestamp, webhookId, body].join(".");
+  const signedPayload = [timestamp, topic, webhookId, body].join(".");
 
   return createHmac("sha256", secret)
     .update(signedPayload)
