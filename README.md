@@ -1,4 +1,4 @@
-# Next.js 16 + Redis Cache Demo
+# Next.js 16 + Redis Shared Cache Lab
 
 Next.js를 AWS 셀프호스팅 멀티 인스턴스/멀티 태스크 환경에서 운영할 때, Redis 기반 공유 캐시로 ISR/SSG/Cache Components를 실용적으로 유지하는 방법을 검증하는 운영형 포트폴리오 프로젝트다.
 
@@ -46,6 +46,29 @@ Next.js를 AWS 셀프호스팅 멀티 인스턴스/멀티 태스크 환경에서
 - Redis cache handler 단위/통합 테스트 통과
 - `lint`, `typecheck`, `test`, `build` 로컬 검증 완료
 
+2026-04-09 기준으로 staging에서 아래 항목도 추가 확인했다.
+
+- ECS Fargate 멀티 task 환경 배포 완료
+- ElastiCache Redis 연결 정상
+- 메인 `random-user` 캐시가 Redis에 실제 저장되는 것 확인
+- `next-cache:entry:*`, `next-cache:tag:*`, `next-cache:tag-expiration:*` 키 생성 확인
+- 초기 상태에서는 인스턴스별 로컬 캐시처럼 동작했지만, build/runtime 분리 이슈를 수정한 뒤 중앙 Redis shared cache 동작 확인
+- Webhook 시뮬레이션 기반 hard invalidation 정상 동작 확인
+- Server Action 기반 `revalidateTag("max")`는 soft revalidation 특성상 즉시 변경이 아닌, 잠시 뒤 새 값이 반영되는 것 확인
+
+## Staging
+
+- Staging URL: http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com
+- Health: http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com/api/health
+- Runtime: http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com/api/runtime
+- Cache Debug: http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com/api/cache-debug
+
+Staging에서 확인한 핵심 시나리오:
+
+1. 메인 페이지를 여러 번 새로고침해도 같은 유저가 유지되면 shared cache가 붙은 상태다.
+2. Webhook 시뮬레이션 무효화 후 다시 요청하면 새로운 유저가 바로 보일 수 있다.
+3. Server Action 무효화는 `stale-while-revalidate` 성격이라 즉시 바뀌지 않을 수 있고, 잠시 뒤 다시 요청했을 때 새로운 유저가 보이는 것이 정상이다.
+
 캐시 모델 검증 결과:
 
 - `cacheComponents: true`에서 `export const revalidate = 60`은 빌드 에러로 막힌다.
@@ -85,7 +108,7 @@ DISABLE_REDIS_CACHE_HANDLER=true npm run build
   - `cacheLife`, timeout, retry, fallback, fetch policy 정리 필요
 - 메트릭 저장소가 아직 프로세스 메모리 중심
   - 멀티 인스턴스 전역 집계 관점 보강 필요
-- README가 실험 결과와 운영 지표를 아직 담지 못함
+- README에 실측 지표, 스크린샷, 그래프, before/after 표를 더 보강해야 함
 - 부하 테스트, 장애 실험, 비용 추정, 실험 비교 문서가 템플릿 단계
 - health/build 과정에서 Redis 미연결 시 노이즈 로그가 남음
 
@@ -247,9 +270,21 @@ production 기준 검증 경로:
 
 Server Action에서 `revalidateTag(tag, "max")`를 호출해 stale-while-revalidate 경로를 탄다.
 
+현재 staging에서 확인한 체감 동작:
+
+1. 버튼 직후 바로 새로고침하면 이전 값이 남아 있을 수 있다.
+2. 조금 뒤 다시 요청하면 새 값으로 교체된다.
+3. 즉, 현재 구현은 "즉시 hard expire"가 아니라 soft revalidation semantics에 가깝게 동작한다.
+
 ### Hard expire
 
 Webhook이나 외부 동기화 이벤트에서 `revalidateTag(tag, { expire: 0 })`를 호출해 즉시 만료시킨다.
+
+현재 staging에서 확인한 체감 동작:
+
+1. Webhook 시뮬레이션 버튼으로 무효화를 요청한다.
+2. 다시 요청하면 즉시 다른 유저가 보일 가능성이 높다.
+3. soft revalidation보다 훨씬 직접적인 invalidation UX를 제공한다.
 
 ### 현재 구현 포인트
 
