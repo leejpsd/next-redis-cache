@@ -4,7 +4,7 @@ function getRequestId(req: NextRequest): string {
   return req.headers.get("x-request-id") || crypto.randomUUID();
 }
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const requestId = getRequestId(req);
 
   const requestHeaders = new Headers(req.headers);
@@ -23,4 +23,3 @@ export function middleware(req: NextRequest) {
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
-
