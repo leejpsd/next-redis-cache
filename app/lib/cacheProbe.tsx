@@ -101,6 +101,9 @@ export function renderProbePage(
           >
             {JSON.stringify(payload, null, 2)}
           </pre>
+          <pre id="probe-renderer" className="sr-only">
+            {JSON.stringify(renderedBy)}
+          </pre>
         </section>
       </div>
     </main>

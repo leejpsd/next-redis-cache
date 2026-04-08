@@ -5,6 +5,12 @@ export default async function UserProfile() {
   const data = await getRandomUser();
   const user = data.results[0];
   const generatedBy = data.generatedBy;
+  const diagnostics = {
+    fetchedAt: data.fetchedAt,
+    source: data.source,
+    generatedBy,
+    email: user.email,
+  };
 
   const fullName = `${user.name.title} ${user.name.first} ${user.name.last}`;
   const cityCountry = `${user.location.city}, ${user.location.country}`;
@@ -107,6 +113,9 @@ export default async function UserProfile() {
           </div>
         </div>
       </div>
+      <pre id="random-user-payload" className="sr-only">
+        {JSON.stringify(diagnostics)}
+      </pre>
     </section>
   );
 }
