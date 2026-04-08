@@ -4,6 +4,7 @@ import { getRandomUser } from "../lib/getRandomUser";
 export default async function UserProfile() {
   const data = await getRandomUser();
   const user = data.results[0];
+  const generatedBy = data.generatedBy;
 
   const fullName = `${user.name.title} ${user.name.first} ${user.name.last}`;
   const cityCountry = `${user.location.city}, ${user.location.country}`;
@@ -93,6 +94,15 @@ export default async function UserProfile() {
             <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-900/80 px-2.5 py-1 font-mono text-slate-300">
               lat {user.location.coordinates.latitude}, lng{" "}
               {user.location.coordinates.longitude}
+            </span>
+            <span className="inline-flex items-center rounded-full border border-emerald-700/70 bg-emerald-500/10 px-2.5 py-1 font-mono text-emerald-200">
+              source {data.source}
+            </span>
+            <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-900/80 px-2.5 py-1 font-mono text-slate-300">
+              cache by {generatedBy.instanceId}
+            </span>
+            <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-900/80 px-2.5 py-1 font-mono text-slate-300">
+              boot {generatedBy.bootId.slice(0, 8)} · pid {generatedBy.pid}
             </span>
           </div>
         </div>
