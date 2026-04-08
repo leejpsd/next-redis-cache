@@ -105,7 +105,7 @@ resource "aws_lb_target_group" "app" {
 
   health_check {
     enabled             = true
-    path                = "/api/health"
+    path                = "/api/runtime"
     healthy_threshold   = 2
     unhealthy_threshold = 3
     matcher             = "200-399"
