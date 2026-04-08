@@ -7,15 +7,24 @@ type ProbePayload = {
 };
 
 function getProbeSourceBaseUrl(): string {
-  const baseUrl = process.env.CACHE_PROBE_SOURCE_URL;
-  if (!baseUrl) {
-    throw new Error("CACHE_PROBE_SOURCE_URL is required for cache verification routes.");
-  }
-  return baseUrl;
+  return process.env.CACHE_PROBE_SOURCE_URL || "";
+}
+
+function getPlaceholderPayload(mode: string): ProbePayload {
+  return {
+    mode,
+    count: 0,
+    servedAt: 0,
+  };
 }
 
 async function fetchProbe(mode: string, init?: RequestInit): Promise<ProbePayload> {
-  const url = new URL(`/probe?mode=${encodeURIComponent(mode)}`, getProbeSourceBaseUrl());
+  const baseUrl = getProbeSourceBaseUrl();
+  if (!baseUrl) {
+    return getPlaceholderPayload(mode);
+  }
+
+  const url = new URL(`/probe?mode=${encodeURIComponent(mode)}`, baseUrl);
   const response = await fetch(url, init);
 
   if (!response.ok) {
