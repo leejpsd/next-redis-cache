@@ -6,20 +6,19 @@ const enableRedisCacheHandler =
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  // 여기서 Redis 핸들러를 default 또는 remote에 붙임
+  // ISR/route cache (singular cacheHandler)와
+  // Cache Components(use cache, plural cacheHandlers)를 각각 Redis로 공유한다.
+  cacheHandler: enableRedisCacheHandler
+    ? require.resolve("./incremental-cache-handler.js")
+    : undefined,
+
   cacheHandlers: enableRedisCacheHandler
     ? {
-        // 전체 서버 캐시를 Redis로 공유하고 싶다면:
         default: require.resolve("./redis-handler.cjs"),
-
-        // 혹은 'use cache: remote' 전용으로만 쓰고 싶으면 remote에만 등록하고,
-        // default는 기존 in-memory 그대로 둬도 됨.
-        // remote: require.resolve("./redis-handler.cjs"),
       }
     : {},
 
-  // 기본 파일시스템/메모리 캐시를 0으로 꺼버려야
-  // 모든 캐시가 Redis로만 가게 됨
+  // 멀티 인스턴스에서 로컬 메모리 캐시가 엇갈리지 않도록 기본 메모리 캐시는 끈다.
   cacheMaxMemorySize: 0,
   cacheComponents: true,
 
