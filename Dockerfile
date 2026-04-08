@@ -11,7 +11,6 @@ RUN npm ci
 FROM base AS builder
 ENV NODE_ENV=production
 ARG APP_BASE_URL=http://localhost:3000
-ENV DISABLE_REDIS_CACHE_HANDLER=true
 ENV APP_BASE_URL=$APP_BASE_URL
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .

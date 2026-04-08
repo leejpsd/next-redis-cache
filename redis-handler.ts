@@ -1,4 +1,4 @@
-import { createClient } from "redis";
+import { createClient, type RedisClientType } from "redis";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,29 +26,64 @@ interface UpdateTagDurations {
 
 // ─── Redis Client ─────────────────────────────────────────────────────────────
 
-const redisUrl = process.env.REDIS_URL;
-if (!redisUrl) {
-  throw new Error(
-    "[Redis CacheHandler] REDIS_URL environment variable is not set."
-  );
+let client: RedisClientType | null = null;
+let connectPromise: Promise<void> | null = null;
+
+function getRedisUrl(): string | null {
+  return process.env.REDIS_URL || null;
 }
 
-const client = createClient({
-  url: redisUrl,
-  socket: {
-    connectTimeout: 5000,
-    reconnectStrategy: (retries) => Math.min(retries * 100, 3000),
-  },
-});
+function getClient(): RedisClientType | null {
+  const redisUrl = getRedisUrl();
+  if (!redisUrl) {
+    return null;
+  }
 
-client.on("error", (err: Error) => {
-  console.error("[Redis CacheHandler] Redis client error:", err.message);
-});
+  if (client) {
+    return client;
+  }
 
-if (!client.isOpen) {
-  client.connect().catch((err: Error) => {
-    console.error("[Redis CacheHandler] Failed to connect:", err.message);
+  client = createClient({
+    url: redisUrl,
+    socket: {
+      connectTimeout: 5000,
+      reconnectStrategy: (retries) => Math.min(retries * 100, 3000),
+    },
   });
+
+  client.on("error", (err: Error) => {
+    console.error("[Redis CacheHandler] Redis client error:", err.message);
+  });
+
+  return client;
+}
+
+async function connectClient(): Promise<RedisClientType | null> {
+  const redisClient = getClient();
+  if (!redisClient) {
+    return null;
+  }
+
+  if (redisClient.isOpen) {
+    return redisClient;
+  }
+
+  if (!connectPromise) {
+    connectPromise = redisClient
+      .connect()
+      .then(() => undefined)
+      .finally(() => {
+        connectPromise = null;
+      });
+  }
+
+  try {
+    await connectPromise;
+    return redisClient;
+  } catch (err) {
+    console.error("[Redis CacheHandler] Failed to connect:", (err as Error).message);
+    return null;
+  }
 }
 
 // ─── Key Helpers ──────────────────────────────────────────────────────────────
@@ -77,7 +112,12 @@ export async function checkRedisPing(): Promise<{
 }> {
   const start = Date.now();
   try {
-    await client.ping();
+    const redisClient = await connectClient();
+    if (!redisClient) {
+      return { ok: false, latencyMs: Date.now() - start };
+    }
+
+    await redisClient.ping();
     return { ok: true, latencyMs: Date.now() - start };
   } catch {
     return { ok: false, latencyMs: Date.now() - start };
@@ -89,10 +129,19 @@ export async function inspectRedisCacheState(): Promise<{
   tagKeys: string[];
   tagExpirationKeys: string[];
 }> {
+  const redisClient = await connectClient();
+  if (!redisClient) {
+    return {
+      entryKeys: [],
+      tagKeys: [],
+      tagExpirationKeys: [],
+    };
+  }
+
   const [entryKeys, tagKeys, tagExpirationKeys] = await Promise.all([
-    client.keys(`${ENTRY_KEY_PREFIX}*`),
-    client.keys(`${TAG_KEY_PREFIX}*`),
-    client.keys(`${TAG_EXPIRATION_PREFIX}*`),
+    redisClient.keys(`${ENTRY_KEY_PREFIX}*`),
+    redisClient.keys(`${TAG_KEY_PREFIX}*`),
+    redisClient.keys(`${TAG_EXPIRATION_PREFIX}*`),
   ]);
 
   return {
@@ -110,10 +159,13 @@ module.exports = {
     softTags?: string[]
   ): Promise<PendingCacheEntry | undefined> {
     void softTags;
+    const redisClient = await connectClient();
+    if (!redisClient) return undefined;
+
     const redisKey = entryKey(cacheKey);
 
     try {
-      const stored = await client.get(redisKey);
+      const stored = await redisClient.get(redisKey);
       if (!stored) return undefined;
 
       const data: CacheEntry = JSON.parse(stored);
@@ -121,7 +173,7 @@ module.exports = {
       // revalidate 시간이 지났으면 삭제 후 cache miss 처리
       const now = Date.now();
       if (now > data.timestamp + data.revalidate * 1000) {
-        await client.del(redisKey).catch(() => {});
+        await redisClient.del(redisKey).catch(() => {});
         return undefined;
       }
 
@@ -147,6 +199,9 @@ module.exports = {
 
   async set(cacheKey: string, pendingEntry: Promise<PendingCacheEntry>): Promise<void> {
     try {
+      const redisClient = await connectClient();
+      if (!redisClient) return;
+
       const entry = await pendingEntry;
 
       // ReadableStream을 Buffer로 읽기
@@ -174,7 +229,7 @@ module.exports = {
             ? entry.revalidate
             : 3600;
 
-      await client.set(
+      await redisClient.set(
         redisKey,
         JSON.stringify({
           value: buffer.toString("base64"),
@@ -192,9 +247,9 @@ module.exports = {
         for (const tag of entry.tags) {
           if (!tag) continue;
           const tKey = tagKey(tag);
-          await client.sAdd(tKey, redisKey);
+          await redisClient.sAdd(tKey, redisKey);
           // 고아 태그 Set 방지: 엔트리 TTL과 동일하게 만료 설정
-          await client.expire(tKey, ttl);
+          await redisClient.expire(tKey, ttl);
         }
       }
     } catch (err) {
@@ -209,9 +264,11 @@ module.exports = {
 
   async getExpiration(tags: string[]): Promise<number> {
     if (!Array.isArray(tags) || tags.length === 0) return 0;
+    const redisClient = await connectClient();
+    if (!redisClient) return 0;
 
     const expirationKeys = tags.map(tagExpirationKey);
-    const values = await client.mGet(expirationKeys);
+    const values = await redisClient.mGet(expirationKeys);
 
     let maxExpiration = 0;
     for (const value of values) {
@@ -227,6 +284,8 @@ module.exports = {
 
   async updateTags(tags: string[], durations?: UpdateTagDurations): Promise<void> {
     if (!Array.isArray(tags) || tags.length === 0) return;
+    const redisClient = await connectClient();
+    if (!redisClient) return;
 
     try {
       const now = Date.now();
@@ -234,7 +293,7 @@ module.exports = {
 
       for (const tag of tags) {
         const expirationMarkerKey = tagExpirationKey(tag);
-        await client.set(expirationMarkerKey, String(now));
+        await redisClient.set(expirationMarkerKey, String(now));
 
         if (!isHardExpire) {
           // soft stale은 태그 만료 시각만 올려서 stale-while-revalidate 경로를 탄다.
@@ -243,12 +302,12 @@ module.exports = {
 
         const tKey = tagKey(tag);
 
-        const entryKeys = await client.sMembers(tKey);
+        const entryKeys = await redisClient.sMembers(tKey);
         if (entryKeys.length > 0) {
-          await client.del(entryKeys);
+          await redisClient.del(entryKeys);
         }
 
-        await client.del(tKey);
+        await redisClient.del(tKey);
       }
     } catch (err) {
       // 무효화 실패는 치명적 — 상위로 전파
