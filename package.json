@@ -14,7 +14,8 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e:webhook-flow": "node scripts/e2e-webhook-flow.mjs",
-    "test:e2e:consistency-sim": "node scripts/e2e-multi-instance-consistency.mjs"
+    "test:e2e:consistency-sim": "node scripts/e2e-multi-instance-consistency.mjs",
+    "test:e2e:cache-model": "node scripts/e2e-cache-model-check.mjs"
   },
   "dependencies": {
     "next": "16.2.2",
