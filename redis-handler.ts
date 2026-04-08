@@ -84,6 +84,24 @@ export async function checkRedisPing(): Promise<{
   }
 }
 
+export async function inspectRedisCacheState(): Promise<{
+  entryKeys: string[];
+  tagKeys: string[];
+  tagExpirationKeys: string[];
+}> {
+  const [entryKeys, tagKeys, tagExpirationKeys] = await Promise.all([
+    client.keys(`${ENTRY_KEY_PREFIX}*`),
+    client.keys(`${TAG_KEY_PREFIX}*`),
+    client.keys(`${TAG_EXPIRATION_PREFIX}*`),
+  ]);
+
+  return {
+    entryKeys,
+    tagKeys,
+    tagExpirationKeys,
+  };
+}
+
 // ─── CacheHandler ─────────────────────────────────────────────────────────────
 
 module.exports = {

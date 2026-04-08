@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.checkRedisPing = checkRedisPing;
+exports.inspectRedisCacheState = inspectRedisCacheState;
 const redis_1 = require("redis");
 // ─── Redis Client ─────────────────────────────────────────────────────────────
 const redisUrl = process.env.REDIS_URL;
@@ -45,6 +46,18 @@ async function checkRedisPing() {
     catch {
         return { ok: false, latencyMs: Date.now() - start };
     }
+}
+async function inspectRedisCacheState() {
+    const [entryKeys, tagKeys, tagExpirationKeys] = await Promise.all([
+        client.keys(`${ENTRY_KEY_PREFIX}*`),
+        client.keys(`${TAG_KEY_PREFIX}*`),
+        client.keys(`${TAG_EXPIRATION_PREFIX}*`),
+    ]);
+    return {
+        entryKeys,
+        tagKeys,
+        tagExpirationKeys,
+    };
 }
 // ─── CacheHandler ─────────────────────────────────────────────────────────────
 module.exports = {
