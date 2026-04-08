@@ -29,6 +29,9 @@ interface UpdateTagDurations {
 const useMemoryFallback = process.env.CACHE_HANDLER_FALLBACK === "memory";
 let client: RedisClientType | null = null;
 let connectPromise: Promise<void> | null = null;
+const memoryEntries = new Map<string, string>();
+const memoryTagEntries = new Map<string, Set<string>>();
+const memoryTagExpirations = new Map<string, number>();
 
 function getRedisUrl(): string | null {
   return process.env.REDIS_URL || null;
@@ -109,6 +112,15 @@ function tagExpirationKey(tag: string): string {
   return `${TAG_EXPIRATION_PREFIX}${tag}`;
 }
 
+function getMemoryTagSet(tag: string): Set<string> {
+  const existing = memoryTagEntries.get(tag);
+  if (existing) return existing;
+
+  const created = new Set<string>();
+  memoryTagEntries.set(tag, created);
+  return created;
+}
+
 // ─── Health Check Helper (used by /api/health) ────────────────────────────────
 
 export async function checkRedisPing(): Promise<{
@@ -138,6 +150,16 @@ export async function inspectRedisCacheState(): Promise<{
   tagKeys: string[];
   tagExpirationKeys: string[];
 }> {
+  if (useMemoryFallback) {
+    return {
+      entryKeys: [...memoryEntries.keys()],
+      tagKeys: [...memoryTagEntries.keys()].map((tag) => tagKey(tag)),
+      tagExpirationKeys: [...memoryTagExpirations.keys()].map((tag) =>
+        tagExpirationKey(tag)
+      ),
+    };
+  }
+
   const redisClient = await connectClient();
   if (!redisClient) {
     return {
@@ -169,12 +191,13 @@ module.exports = {
   ): Promise<PendingCacheEntry | undefined> {
     void softTags;
     const redisClient = await connectClient();
-    if (!redisClient) return undefined;
 
     const redisKey = entryKey(cacheKey);
 
     try {
-      const stored = await redisClient.get(redisKey);
+      const stored = redisClient
+        ? await redisClient.get(redisKey)
+        : memoryEntries.get(redisKey);
       if (!stored) return undefined;
 
       const data: CacheEntry = JSON.parse(stored);
@@ -182,7 +205,11 @@ module.exports = {
       // revalidate 시간이 지났으면 삭제 후 cache miss 처리
       const now = Date.now();
       if (now > data.timestamp + data.revalidate * 1000) {
-        await redisClient.del(redisKey).catch(() => {});
+        if (redisClient) {
+          await redisClient.del(redisKey).catch(() => {});
+        } else {
+          memoryEntries.delete(redisKey);
+        }
         return undefined;
       }
 
@@ -209,8 +236,6 @@ module.exports = {
   async set(cacheKey: string, pendingEntry: Promise<PendingCacheEntry>): Promise<void> {
     try {
       const redisClient = await connectClient();
-      if (!redisClient) return;
-
       const entry = await pendingEntry;
 
       // ReadableStream을 Buffer로 읽기
@@ -238,27 +263,32 @@ module.exports = {
             ? entry.revalidate
             : 3600;
 
-      await redisClient.set(
-        redisKey,
-        JSON.stringify({
-          value: buffer.toString("base64"),
-          tags: entry.tags,
-          stale: entry.stale,
-          timestamp: entry.timestamp,
-          expire: entry.expire,
-          revalidate: entry.revalidate,
-        }),
-        { EX: ttl }
-      );
+      const serialized = JSON.stringify({
+        value: buffer.toString("base64"),
+        tags: entry.tags,
+        stale: entry.stale,
+        timestamp: entry.timestamp,
+        expire: entry.expire,
+        revalidate: entry.revalidate,
+      });
+
+      if (redisClient) {
+        await redisClient.set(redisKey, serialized, { EX: ttl });
+      } else {
+        memoryEntries.set(redisKey, serialized);
+      }
 
       // 태그 인덱스 업데이트: tag → [entryKey, ...] (Set)
       if (Array.isArray(entry.tags)) {
         for (const tag of entry.tags) {
           if (!tag) continue;
           const tKey = tagKey(tag);
-          await redisClient.sAdd(tKey, redisKey);
-          // 고아 태그 Set 방지: 엔트리 TTL과 동일하게 만료 설정
-          await redisClient.expire(tKey, ttl);
+          if (redisClient) {
+            await redisClient.sAdd(tKey, redisKey);
+            await redisClient.expire(tKey, ttl);
+          } else {
+            getMemoryTagSet(tag).add(redisKey);
+          }
         }
       }
     } catch (err) {
@@ -274,7 +304,9 @@ module.exports = {
   async getExpiration(tags: string[]): Promise<number> {
     if (!Array.isArray(tags) || tags.length === 0) return 0;
     const redisClient = await connectClient();
-    if (!redisClient) return 0;
+    if (!redisClient) {
+      return Math.max(0, ...tags.map((tag) => memoryTagExpirations.get(tag) || 0));
+    }
 
     const expirationKeys = tags.map(tagExpirationKey);
     const values = await redisClient.mGet(expirationKeys);
@@ -294,7 +326,6 @@ module.exports = {
   async updateTags(tags: string[], durations?: UpdateTagDurations): Promise<void> {
     if (!Array.isArray(tags) || tags.length === 0) return;
     const redisClient = await connectClient();
-    if (!redisClient) return;
 
     try {
       const now = Date.now();
@@ -302,7 +333,11 @@ module.exports = {
 
       for (const tag of tags) {
         const expirationMarkerKey = tagExpirationKey(tag);
-        await redisClient.set(expirationMarkerKey, String(now));
+        if (redisClient) {
+          await redisClient.set(expirationMarkerKey, String(now));
+        } else {
+          memoryTagExpirations.set(tag, now);
+        }
 
         if (!isHardExpire) {
           // soft stale은 태그 만료 시각만 올려서 stale-while-revalidate 경로를 탄다.
@@ -311,12 +346,21 @@ module.exports = {
 
         const tKey = tagKey(tag);
 
-        const entryKeys = await redisClient.sMembers(tKey);
-        if (entryKeys.length > 0) {
+        const entryKeys = redisClient
+          ? await redisClient.sMembers(tKey)
+          : [...(memoryTagEntries.get(tag) || new Set<string>())];
+        if (entryKeys.length > 0 && redisClient) {
           await redisClient.del(entryKeys);
         }
 
-        await redisClient.del(tKey);
+        if (redisClient) {
+          await redisClient.del(tKey);
+        } else {
+          for (const key of entryKeys) {
+            memoryEntries.delete(key);
+          }
+          memoryTagEntries.delete(tag);
+        }
       }
     } catch (err) {
       // 무효화 실패는 치명적 — 상위로 전파

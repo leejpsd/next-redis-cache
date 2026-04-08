@@ -6,6 +6,9 @@ const redis_1 = require("redis");
 const useMemoryFallback = process.env.CACHE_HANDLER_FALLBACK === "memory";
 let client = null;
 let connectPromise = null;
+const memoryEntries = new Map();
+const memoryTagEntries = new Map();
+const memoryTagExpirations = new Map();
 function getRedisUrl() {
     return process.env.REDIS_URL || null;
 }
@@ -70,6 +73,14 @@ function tagKey(tag) {
 function tagExpirationKey(tag) {
     return `${TAG_EXPIRATION_PREFIX}${tag}`;
 }
+function getMemoryTagSet(tag) {
+    const existing = memoryTagEntries.get(tag);
+    if (existing)
+        return existing;
+    const created = new Set();
+    memoryTagEntries.set(tag, created);
+    return created;
+}
 // ─── Health Check Helper (used by /api/health) ────────────────────────────────
 async function checkRedisPing() {
     const start = Date.now();
@@ -89,6 +100,13 @@ async function checkRedisPing() {
     }
 }
 async function inspectRedisCacheState() {
+    if (useMemoryFallback) {
+        return {
+            entryKeys: [...memoryEntries.keys()],
+            tagKeys: [...memoryTagEntries.keys()].map((tag) => tagKey(tag)),
+            tagExpirationKeys: [...memoryTagExpirations.keys()].map((tag) => tagExpirationKey(tag)),
+        };
+    }
     const redisClient = await connectClient();
     if (!redisClient) {
         return {
@@ -113,18 +131,23 @@ module.exports = {
     async get(cacheKey, softTags) {
         void softTags;
         const redisClient = await connectClient();
-        if (!redisClient)
-            return undefined;
         const redisKey = entryKey(cacheKey);
         try {
-            const stored = await redisClient.get(redisKey);
+            const stored = redisClient
+                ? await redisClient.get(redisKey)
+                : memoryEntries.get(redisKey);
             if (!stored)
                 return undefined;
             const data = JSON.parse(stored);
             // revalidate 시간이 지났으면 삭제 후 cache miss 처리
             const now = Date.now();
             if (now > data.timestamp + data.revalidate * 1000) {
-                await redisClient.del(redisKey).catch(() => { });
+                if (redisClient) {
+                    await redisClient.del(redisKey).catch(() => { });
+                }
+                else {
+                    memoryEntries.delete(redisKey);
+                }
                 return undefined;
             }
             // base64로 저장된 바이트를 ReadableStream으로 복원
@@ -150,8 +173,6 @@ module.exports = {
     async set(cacheKey, pendingEntry) {
         try {
             const redisClient = await connectClient();
-            if (!redisClient)
-                return;
             const entry = await pendingEntry;
             // ReadableStream을 Buffer로 읽기
             const reader = entry.value.getReader();
@@ -175,23 +196,33 @@ module.exports = {
                 : entry.revalidate > 0
                     ? entry.revalidate
                     : 3600;
-            await redisClient.set(redisKey, JSON.stringify({
+            const serialized = JSON.stringify({
                 value: buffer.toString("base64"),
                 tags: entry.tags,
                 stale: entry.stale,
                 timestamp: entry.timestamp,
                 expire: entry.expire,
                 revalidate: entry.revalidate,
-            }), { EX: ttl });
+            });
+            if (redisClient) {
+                await redisClient.set(redisKey, serialized, { EX: ttl });
+            }
+            else {
+                memoryEntries.set(redisKey, serialized);
+            }
             // 태그 인덱스 업데이트: tag → [entryKey, ...] (Set)
             if (Array.isArray(entry.tags)) {
                 for (const tag of entry.tags) {
                     if (!tag)
                         continue;
                     const tKey = tagKey(tag);
-                    await redisClient.sAdd(tKey, redisKey);
-                    // 고아 태그 Set 방지: 엔트리 TTL과 동일하게 만료 설정
-                    await redisClient.expire(tKey, ttl);
+                    if (redisClient) {
+                        await redisClient.sAdd(tKey, redisKey);
+                        await redisClient.expire(tKey, ttl);
+                    }
+                    else {
+                        getMemoryTagSet(tag).add(redisKey);
+                    }
                 }
             }
         }
@@ -207,8 +238,9 @@ module.exports = {
         if (!Array.isArray(tags) || tags.length === 0)
             return 0;
         const redisClient = await connectClient();
-        if (!redisClient)
-            return 0;
+        if (!redisClient) {
+            return Math.max(0, ...tags.map((tag) => memoryTagExpirations.get(tag) || 0));
+        }
         const expirationKeys = tags.map(tagExpirationKey);
         const values = await redisClient.mGet(expirationKeys);
         let maxExpiration = 0;
@@ -226,24 +258,37 @@ module.exports = {
         if (!Array.isArray(tags) || tags.length === 0)
             return;
         const redisClient = await connectClient();
-        if (!redisClient)
-            return;
         try {
             const now = Date.now();
             const isHardExpire = durations?.expire === 0;
             for (const tag of tags) {
                 const expirationMarkerKey = tagExpirationKey(tag);
-                await redisClient.set(expirationMarkerKey, String(now));
+                if (redisClient) {
+                    await redisClient.set(expirationMarkerKey, String(now));
+                }
+                else {
+                    memoryTagExpirations.set(tag, now);
+                }
                 if (!isHardExpire) {
                     // soft stale은 태그 만료 시각만 올려서 stale-while-revalidate 경로를 탄다.
                     continue;
                 }
                 const tKey = tagKey(tag);
-                const entryKeys = await redisClient.sMembers(tKey);
-                if (entryKeys.length > 0) {
+                const entryKeys = redisClient
+                    ? await redisClient.sMembers(tKey)
+                    : [...(memoryTagEntries.get(tag) || new Set())];
+                if (entryKeys.length > 0 && redisClient) {
                     await redisClient.del(entryKeys);
                 }
-                await redisClient.del(tKey);
+                if (redisClient) {
+                    await redisClient.del(tKey);
+                }
+                else {
+                    for (const key of entryKeys) {
+                        memoryEntries.delete(key);
+                    }
+                    memoryTagEntries.delete(tag);
+                }
             }
         }
         catch (err) {
