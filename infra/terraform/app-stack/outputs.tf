@@ -13,6 +13,16 @@ output "ecs_service_name" {
   value       = aws_ecs_service.app.name
 }
 
+output "ecs_task_family" {
+  description = "ECS task definition family"
+  value       = aws_ecs_task_definition.app.family
+}
+
+output "app_base_url" {
+  description = "Public application base URL configured in the task"
+  value       = var.app_base_url
+}
+
 output "redis_primary_endpoint" {
   description = "Redis primary endpoint"
   value       = aws_elasticache_replication_group.redis.primary_endpoint_address

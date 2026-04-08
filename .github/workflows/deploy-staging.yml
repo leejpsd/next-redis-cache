@@ -28,6 +28,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -97,3 +102,46 @@ jobs:
           aws ecs wait services-stable \
             --cluster "$ECS_CLUSTER_NAME" \
             --services "$ECS_SERVICE_NAME"
+
+      - name: Load staging verification inputs
+        run: |
+          APP_BASE_URL=$(jq -r \
+            --arg CONTAINER_NAME "$CONTAINER_NAME" \
+            '.containerDefinitions[]
+            | select(.name == $CONTAINER_NAME)
+            | .environment[]
+            | select(.name == "APP_BASE_URL")
+            | .value' task-definition.rendered.json)
+
+          REVALIDATION_SECRET_ARN=$(jq -r \
+            --arg CONTAINER_NAME "$CONTAINER_NAME" \
+            '.containerDefinitions[]
+            | select(.name == $CONTAINER_NAME)
+            | .secrets[]
+            | select(.name == "REVALIDATION_SECRET")
+            | .valueFrom' task-definition.rendered.json)
+
+          WEBHOOK_SIGNING_SECRET_ARN=$(jq -r \
+            --arg CONTAINER_NAME "$CONTAINER_NAME" \
+            '.containerDefinitions[]
+            | select(.name == $CONTAINER_NAME)
+            | .secrets[]
+            | select(.name == "WEBHOOK_SIGNING_SECRET")
+            | .valueFrom' task-definition.rendered.json)
+
+          REVALIDATION_SECRET=$(aws secretsmanager get-secret-value \
+            --secret-id "$REVALIDATION_SECRET_ARN" \
+            --query SecretString \
+            --output text)
+
+          WEBHOOK_SIGNING_SECRET=$(aws secretsmanager get-secret-value \
+            --secret-id "$WEBHOOK_SIGNING_SECRET_ARN" \
+            --query SecretString \
+            --output text)
+
+          echo "APP_BASE_URL=$APP_BASE_URL" >> "$GITHUB_ENV"
+          echo "REVALIDATION_SECRET=$REVALIDATION_SECRET" >> "$GITHUB_ENV"
+          echo "WEBHOOK_SIGNING_SECRET=$WEBHOOK_SIGNING_SECRET" >> "$GITHUB_ENV"
+
+      - name: Verify shared cache on staging
+        run: node scripts/verify-staging-shared-cache.mjs
