@@ -155,8 +155,10 @@ resource "aws_lb_listener" "https" {
   default_action {
     type = "forward"
 
-    target_group {
-      arn = aws_lb_target_group.app.arn
+    forward {
+      target_group {
+        arn = aws_lb_target_group.app.arn
+      }
     }
   }
 }
@@ -306,7 +308,7 @@ resource "aws_ecs_service" "app" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    assign_public_ip = false
+    assign_public_ip = true
     security_groups  = [aws_security_group.ecs.id]
     subnets          = var.private_subnet_ids
   }
