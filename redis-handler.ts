@@ -26,6 +26,7 @@ interface UpdateTagDurations {
 
 // ─── Redis Client ─────────────────────────────────────────────────────────────
 
+const useMemoryFallback = process.env.CACHE_HANDLER_FALLBACK === "memory";
 let client: RedisClientType | null = null;
 let connectPromise: Promise<void> | null = null;
 
@@ -34,6 +35,10 @@ function getRedisUrl(): string | null {
 }
 
 function getClient(): RedisClientType | null {
+  if (useMemoryFallback) {
+    return null;
+  }
+
   const redisUrl = getRedisUrl();
   if (!redisUrl) {
     return null;
@@ -46,8 +51,8 @@ function getClient(): RedisClientType | null {
   client = createClient({
     url: redisUrl,
     socket: {
-      connectTimeout: 5000,
-      reconnectStrategy: (retries) => Math.min(retries * 100, 3000),
+      connectTimeout: 1000,
+      reconnectStrategy: false,
     },
   });
 
@@ -111,6 +116,10 @@ export async function checkRedisPing(): Promise<{
   latencyMs: number;
 }> {
   const start = Date.now();
+  if (useMemoryFallback) {
+    return { ok: true, latencyMs: 0 };
+  }
+
   try {
     const redisClient = await connectClient();
     if (!redisClient) {

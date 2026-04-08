@@ -3,12 +3,16 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.checkRedisPing = checkRedisPing;
 exports.inspectRedisCacheState = inspectRedisCacheState;
 const redis_1 = require("redis");
+const useMemoryFallback = process.env.CACHE_HANDLER_FALLBACK === "memory";
 let client = null;
 let connectPromise = null;
 function getRedisUrl() {
     return process.env.REDIS_URL || null;
 }
 function getClient() {
+    if (useMemoryFallback) {
+        return null;
+    }
     const redisUrl = getRedisUrl();
     if (!redisUrl) {
         return null;
@@ -19,8 +23,8 @@ function getClient() {
     client = (0, redis_1.createClient)({
         url: redisUrl,
         socket: {
-            connectTimeout: 5000,
-            reconnectStrategy: (retries) => Math.min(retries * 100, 3000),
+            connectTimeout: 1000,
+            reconnectStrategy: false,
         },
     });
     client.on("error", (err) => {
@@ -69,6 +73,9 @@ function tagExpirationKey(tag) {
 // ─── Health Check Helper (used by /api/health) ────────────────────────────────
 async function checkRedisPing() {
     const start = Date.now();
+    if (useMemoryFallback) {
+        return { ok: true, latencyMs: 0 };
+    }
     try {
         const redisClient = await connectClient();
         if (!redisClient) {
