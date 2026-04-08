@@ -28,86 +28,113 @@ export default async function UserProfile() {
       day: "numeric",
     }
   );
+  const generatedAt = new Date(data.fetchedAt).toLocaleTimeString("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 
   return (
-    <section className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 shadow-xl shadow-slate-950/50">
-      <div className="flex flex-col sm:flex-row gap-6">
-        {/* 왼쪽: 프로필 이미지 */}
-        <div className="flex flex-col items-center gap-3">
-          <div className="relative w-28 h-28 rounded-full overflow-hidden ring-2 ring-slate-700 ring-offset-2 ring-offset-slate-900">
+    <section className="glass-card equal-card rounded-[2rem] p-7 sm:p-8">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="eyebrow">Shared Cache Result</p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-stone-950">
+            Cached random user
+          </h2>
+          <p className="mt-2 max-w-xl text-sm leading-6 text-stone-600">
+            메인 카드가 여러 ECS task에서 동일하게 보이면 메인 `random-user`
+            캐시가 Redis에 저장되어 중앙화된 상태입니다.
+          </p>
+        </div>
+
+        <div className="inline-flex items-center gap-2 rounded-full border border-emerald-700/15 bg-emerald-900/5 px-3 py-1.5 text-xs font-medium text-emerald-900">
+          <span className="h-2 w-2 rounded-full bg-emerald-600" />
+          generated at {generatedAt}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-7 sm:flex-row">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative h-32 w-32 overflow-hidden rounded-full ring-1 ring-stone-300/80 ring-offset-4 ring-offset-[#f7f2ea]">
             <Image
               src={user.picture.large}
               alt={fullName}
               fill
-              sizes="112px"
+              sizes="128px"
               className="object-cover"
               priority
             />
           </div>
-          <span className="inline-flex items-center gap-1 rounded-full bg-slate-800/80 px-3 py-1 text-xs font-medium text-slate-200">
-            <span className="h-2 w-2 rounded-full bg-emerald-400" />
-            캐시된 랜덤 유저
+
+          <span className="inline-flex items-center gap-2 rounded-full border border-stone-300/80 bg-white/80 px-3 py-1.5 text-xs font-medium text-stone-700">
+            <span className="h-2 w-2 rounded-full bg-stone-500" />
+            source {data.source}
           </span>
         </div>
 
-        {/* 오른쪽: 상세 정보 */}
-        <div className="flex-1 space-y-4">
+        <div className="flex-1 space-y-5">
           <div>
-            <h2 className="text-xl font-semibold leading-tight">{fullName}</h2>
-            <p className="text-sm text-slate-400 mt-1">
+            <h3 className="text-3xl font-semibold leading-tight tracking-[-0.04em] text-stone-950">
+              {fullName}
+            </h3>
+            <p className="mt-2 text-sm text-stone-600">
               {user.nat} · 나이 {user.dob.age}세 · 가입 {user.registered.age}
               년차
             </p>
           </div>
 
-          {/* 메타 정보 그리드 */}
           <dl className="grid gap-3 text-sm sm:grid-cols-2">
-            <div>
-              <dt className="text-slate-400">이메일</dt>
-              <dd className="font-medium break-all text-slate-50">
+            <div className="metric-card rounded-2xl p-4">
+              <dt className="text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-stone-500">
+                Email
+              </dt>
+              <dd className="mt-2 break-all font-medium text-stone-950">
                 {user.email}
               </dd>
             </div>
-            <div>
-              <dt className="text-slate-400">전화번호</dt>
-              <dd className="font-medium text-slate-50">{user.phone}</dd>
+            <div className="metric-card rounded-2xl p-4">
+              <dt className="text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-stone-500">
+                Phone
+              </dt>
+              <dd className="mt-2 font-medium text-stone-950">{user.phone}</dd>
             </div>
-            <div>
-              <dt className="text-slate-400">주소</dt>
-              <dd className="font-medium text-slate-50">
+            <div className="metric-card rounded-2xl p-4">
+              <dt className="text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-stone-500">
+                Address
+              </dt>
+              <dd className="mt-2 font-medium text-stone-950">
                 {street}
                 <br />
                 {cityCountry}
               </dd>
             </div>
-            <div>
-              <dt className="text-slate-400">생년월일 / 가입일</dt>
-              <dd className="font-medium text-slate-50">
+            <div className="metric-card rounded-2xl p-4">
+              <dt className="text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-stone-500">
+                Dates
+              </dt>
+              <dd className="mt-2 font-medium text-stone-950">
                 <span className="block">생일: {dob}</span>
-                <span className="block text-slate-400 text-xs">
+                <span className="mt-1 block text-xs text-stone-500">
                   가입: {registered}
                 </span>
               </dd>
             </div>
           </dl>
 
-          {/* 타임존 & 좌표 */}
-          <div className="mt-2 flex flex-wrap gap-2 text-xs">
-            <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-900/80 px-2.5 py-1 font-mono text-slate-300">
+          <div className="flex flex-wrap gap-2 text-xs">
+            <span className="rounded-full border border-stone-300/80 bg-white/80 px-3 py-1.5 font-mono text-stone-700">
               TZ {user.location.timezone.offset} ·{" "}
               {user.location.timezone.description}
             </span>
-            <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-900/80 px-2.5 py-1 font-mono text-slate-300">
+            <span className="rounded-full border border-stone-300/80 bg-white/80 px-3 py-1.5 font-mono text-stone-700">
               lat {user.location.coordinates.latitude}, lng{" "}
               {user.location.coordinates.longitude}
             </span>
-            <span className="inline-flex items-center rounded-full border border-emerald-700/70 bg-emerald-500/10 px-2.5 py-1 font-mono text-emerald-200">
-              source {data.source}
-            </span>
-            <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-900/80 px-2.5 py-1 font-mono text-slate-300">
+            <span className="rounded-full border border-stone-300/80 bg-white/80 px-3 py-1.5 font-mono text-stone-700">
               cache by {generatedBy.instanceId}
             </span>
-            <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-900/80 px-2.5 py-1 font-mono text-slate-300">
+            <span className="rounded-full border border-stone-300/80 bg-white/80 px-3 py-1.5 font-mono text-stone-700">
               boot {generatedBy.bootId.slice(0, 8)} · pid {generatedBy.pid}
             </span>
           </div>

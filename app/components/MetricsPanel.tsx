@@ -120,23 +120,28 @@ export function MetricsPanel() {
   }, []);
 
   const statusStyle = useMemo(() => {
-    if (!health) return "text-slate-400 border-slate-700";
+    if (!health) return "text-stone-500 border-stone-300/80 bg-white/70";
     return health.status === "ok"
-      ? "text-emerald-300 border-emerald-600/40 bg-emerald-900/20"
-      : "text-amber-300 border-amber-600/40 bg-amber-900/20";
+      ? "text-emerald-900 border-emerald-700/15 bg-emerald-900/5"
+      : "text-amber-900 border-amber-700/15 bg-amber-900/5";
   }, [health]);
 
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 shadow-lg">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-100">Runtime Metrics</h3>
+    <section className="glass-card equal-card rounded-[1.75rem] p-5 sm:p-6">
+      <div className="mb-4 flex items-center justify-between gap-4">
+        <div>
+          <p className="eyebrow">Observability</p>
+          <h3 className="mt-2 text-lg font-semibold tracking-[-0.03em] text-stone-950">
+            Runtime metrics
+          </h3>
+        </div>
         <span className={`rounded-full border px-2 py-0.5 text-xs ${statusStyle}`}>
           {health ? health.status.toUpperCase() : "LOADING"}
         </span>
       </div>
 
       {error ? (
-        <p className="text-xs text-red-300">metrics load error: {error}</p>
+        <p className="text-xs text-rose-700">metrics load error: {error}</p>
       ) : (
         <dl className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-3">
           <MetricItem
@@ -215,9 +220,9 @@ export function MetricsPanel() {
 
 function MetricItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
-      <dt className="text-slate-400">{label}</dt>
-      <dd className="mt-1 font-mono text-slate-100">{value}</dd>
+    <div className="metric-card rounded-2xl p-3">
+      <dt className="text-stone-500">{label}</dt>
+      <dd className="mt-1 font-mono text-stone-950">{value}</dd>
     </div>
   );
 }
