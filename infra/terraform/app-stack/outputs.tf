@@ -23,6 +23,11 @@ output "app_base_url" {
   value       = var.app_base_url
 }
 
+output "alb_http_url" {
+  description = "HTTP URL for the ALB"
+  value       = "http://${aws_lb.app.dns_name}"
+}
+
 output "redis_primary_endpoint" {
   description = "Redis primary endpoint"
   value       = aws_elasticache_replication_group.redis.primary_endpoint_address

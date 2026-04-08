@@ -203,27 +203,6 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-resource "aws_iam_role_policy" "ecs_task_execution_secrets" {
-  name = "${local.name_prefix}-ecs-secrets"
-  role = aws_iam_role.ecs_task_execution.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "secretsmanager:GetSecretValue"
-        ]
-        Resource = [
-          var.revalidation_secret_arn,
-          var.webhook_signing_secret_arn
-        ]
-      }
-    ]
-  })
-}
-
 resource "aws_iam_role" "ecs_task" {
   name = "${local.name_prefix}-ecs-task-role"
 
@@ -295,16 +274,14 @@ resource "aws_ecs_task_definition" "app" {
         {
           name  = "REDIS_URL"
           value = "redis://${aws_elasticache_replication_group.redis.primary_endpoint_address}:6379"
-        }
-      ]
-      secrets = [
-        {
-          name      = "REVALIDATION_SECRET"
-          valueFrom = var.revalidation_secret_arn
         },
         {
-          name      = "WEBHOOK_SIGNING_SECRET"
-          valueFrom = var.webhook_signing_secret_arn
+          name  = "REVALIDATION_SECRET"
+          value = var.revalidation_secret
+        },
+        {
+          name  = "WEBHOOK_SIGNING_SECRET"
+          value = var.webhook_signing_secret
         }
       ]
       logConfiguration = {

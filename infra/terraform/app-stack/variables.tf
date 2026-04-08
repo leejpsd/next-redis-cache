@@ -6,7 +6,7 @@ variable "aws_region" {
 variable "project_name" {
   description = "Project name prefix"
   type        = string
-  default     = "next-redis-cache-demo"
+  default     = "next-redis-cache"
 }
 
 variable "environment" {
@@ -64,13 +64,13 @@ variable "app_base_url" {
   type        = string
 }
 
-variable "revalidation_secret_arn" {
-  description = "Secrets Manager ARN for REVALIDATION_SECRET"
+variable "revalidation_secret" {
+  description = "Webhook access secret used by /api/revalidate"
   type        = string
 }
 
-variable "webhook_signing_secret_arn" {
-  description = "Secrets Manager ARN for WEBHOOK_SIGNING_SECRET"
+variable "webhook_signing_secret" {
+  description = "HMAC signing secret used to verify webhook invalidation"
   type        = string
 }
 
