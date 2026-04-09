@@ -48,7 +48,7 @@ const FALLBACK_RANDOM_USER_RESPONSE = {
   ],
 };
 
-type RandomUserPayload = {
+export type RandomUserPayload = {
   results: Array<{
     name: {
       title: string;
@@ -95,13 +95,16 @@ function isRetryableStatus(status: number): boolean {
   return RETRYABLE_STATUS.has(status);
 }
 
-async function fetchRandomUserFromOrigin(): Promise<RandomUserPayload> {
+async function fetchRandomUserFromOrigin(
+  init?: RequestInit
+): Promise<RandomUserPayload> {
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
     try {
       const response = await fetch(RANDOM_USER_URL, {
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        ...init,
       });
 
       if (!response.ok) {
@@ -152,6 +155,20 @@ export async function getRandomUser(): Promise<RandomUserPayload> {
   } catch (error) {
     console.error(
       "[getRandomUser] Falling back after upstream failure:",
+      error instanceof Error ? error.message : String(error)
+    );
+    return getFallbackRandomUser();
+  }
+}
+
+export async function getLiveRandomUser(): Promise<RandomUserPayload> {
+  try {
+    return await fetchRandomUserFromOrigin({
+      cache: "no-store",
+    });
+  } catch (error) {
+    console.error(
+      "[getLiveRandomUser] Falling back after upstream failure:",
       error instanceof Error ? error.message : String(error)
     );
     return getFallbackRandomUser();

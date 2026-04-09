@@ -69,12 +69,12 @@ export function CacheControls({ lastUpdatedAt }: CacheControlsProps) {
   return (
     <aside className="glass-card equal-card rounded-[1.75rem] p-5 sm:p-6">
       <div className="mb-4 flex items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0 flex-1 pr-2">
           <p className="eyebrow">Cache Control</p>
           <h2 className="mt-2 text-lg font-semibold tracking-[-0.03em] text-stone-950">
             무효화 실험 패널
           </h2>
-          <p className="mt-2 max-w-sm text-sm leading-6 text-stone-600">
+          <p className="mt-2 max-w-xl text-sm leading-6 text-stone-600">
             동일한 태그를 soft 방식과 hard 방식으로 무효화해 체감 차이를 비교합니다.
           </p>
         </div>
@@ -108,7 +108,7 @@ export function CacheControls({ lastUpdatedAt }: CacheControlsProps) {
         </div>
       </dl>
 
-      <div className="mt-4 grid gap-3">
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
         <button
           type="button"
           onClick={handleSoftInvalidate}
