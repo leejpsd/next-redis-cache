@@ -1,8 +1,14 @@
 # Next.js 16 + Redis Shared Cache Lab
 
-Next.js를 AWS 셀프호스팅 멀티 인스턴스/멀티 태스크 환경에서 운영할 때, Redis 기반 공유 캐시로 ISR/SSG/Cache Components를 실용적으로 유지하는 방법을 검증하는 운영형 포트폴리오 프로젝트다.
+이 프로젝트의 의도는 단순히 Redis를 붙여보는 데 있지 않다. 핵심은 "멀티 인스턴스에서 Next 캐시가 왜 어긋나는지"를 먼저 재현하고, 그 문제를 Redis shared cache로 어떻게 해결하는지 before / after로 보여주는 것이다.
 
-> 목표는 "캐시를 붙였다"가 아니라, 다중 인스턴스 환경에서 재검증 가능성과 캐시 일관성을 확보하고, 그 결과로 원본 호출량·응답시간·인프라 자원 사용량을 얼마나 줄였는지 수치로 증명하는 것이다.
+즉 이 저장소는 아래 세 가지를 한 화면에서 비교한다.
+
+- `no-store` 기준선: 새로고침할 때마다 원본 API를 다시 호출한다
+- 기본 Next 캐시 before: `fetch(..., { next: { revalidate, tags } })` 경로가 멀티 인스턴스에서 인스턴스별 캐시로 갈라지는 잘못된 상황을 재현한다
+- Redis shared cache after: 여러 ECS task가 같은 캐시 엔트리를 보도록 중앙화한다
+
+> 목표는 "캐시를 붙였다"가 아니라, 다중 인스턴스 환경에서 캐시 불일치가 어떻게 생기는지 보여주고, Redis로 그 불일치와 무효화 어긋남을 어떻게 줄이는지 운영 환경에서 증명하는 것이다.
 
 ![Next.js](https://img.shields.io/badge/Next.js-16.2.2-black?logo=next.js)
 ![React](https://img.shields.io/badge/React-19.2.0-61DAFB?logo=react)
@@ -11,7 +17,7 @@ Next.js를 AWS 셀프호스팅 멀티 인스턴스/멀티 태스크 환경에서
 
 ## 프로젝트 개요
 
-기본 Next.js self-hosting에서는 ISR을 포함한 서버 캐시가 인스턴스별 로컬 파일시스템과 메모리에 저장된다. 그래서 ALB 뒤에 여러 앱 인스턴스나 ECS task가 있을 때, 같은 build를 쓰더라도 캐시와 무효화가 인스턴스마다 갈라질 수 있다.
+기본 Next.js self-hosting에서는 ISR을 포함한 서버 캐시가 인스턴스별 로컬 파일시스템과 메모리에 저장된다. 그래서 ALB 뒤에 여러 앱 인스턴스나 ECS task가 있을 때, 같은 build를 쓰더라도 캐시와 무효화가 인스턴스마다 갈라질 수 있다. 이 프로젝트는 바로 그 "잘못된 기본 상태"를 먼저 재현한 뒤, Redis shared cache를 붙인 after 상태와 비교한다.
 
 이 프로젝트는 아래 구조를 기준으로 한다.
 
@@ -52,7 +58,8 @@ Next.js를 AWS 셀프호스팅 멀티 인스턴스/멀티 태스크 환경에서
 - ElastiCache Redis 연결 정상
 - 메인 `random-user` 캐시가 Redis에 실제 저장되는 것 확인
 - `next-cache:entry:*`, `next-cache:tag:*`, `next-cache:tag-expiration:*` 키 생성 확인
-- 초기 상태에서는 인스턴스별 로컬 캐시처럼 동작했지만, build/runtime 분리 이슈를 수정한 뒤 중앙 Redis shared cache 동작 확인
+- before 상태에서는 task마다 다른 유저가 보이는 멀티 인스턴스 캐시 불일치 재현
+- build/runtime 분리 이슈를 수정한 뒤 after 상태에서 중앙 Redis shared cache 동작 확인
 - Webhook 시뮬레이션 기반 hard invalidation 정상 동작 확인
 - Server Action 기반 `revalidateTag("max")`는 soft revalidation 특성상 즉시 변경이 아닌, 잠시 뒤 새 값이 반영되는 것 확인
 
@@ -65,9 +72,11 @@ Next.js를 AWS 셀프호스팅 멀티 인스턴스/멀티 태스크 환경에서
 
 Staging에서 확인한 핵심 시나리오:
 
-1. 메인 페이지를 여러 번 새로고침해도 같은 유저가 유지되면 shared cache가 붙은 상태다.
-2. Webhook 시뮬레이션 무효화 후 다시 요청하면 새로운 유저가 바로 보일 수 있다.
-3. Server Action 무효화는 `stale-while-revalidate` 성격이라 즉시 바뀌지 않을 수 있고, 잠시 뒤 다시 요청했을 때 새로운 유저가 보이는 것이 정상이다.
+1. `Live` 카드는 새로고침할 때마다 항상 다른 유저를 보여주는 기준선이다.
+2. `Before` 카드는 일반적인 Next fetch 캐시가 멀티 인스턴스에서 task별로 갈라질 수 있음을 보여준다.
+3. `After` 카드는 Redis shared cache를 통해 여러 task에서도 같은 유저가 유지되는 상태를 보여준다.
+4. Webhook 시뮬레이션 무효화 후 다시 요청하면 새로운 유저가 바로 보일 수 있다.
+5. Server Action 무효화는 `stale-while-revalidate` 성격이라 즉시 바뀌지 않을 수 있고, 잠시 뒤 다시 요청했을 때 새로운 유저가 보이는 것이 정상이다.
 
 캐시 모델 검증 결과:
 
@@ -219,9 +228,9 @@ docs/                      실험, 장애, 비용, 학습 문서
 
 ### 왜 Redis가 필요한가
 
-Next.js 공식 self-hosting 문서 기준으로 ISR을 포함한 서버 캐시는 기본적으로 각 서버 인스턴스의 로컬 파일시스템에 저장된다. 멀티 인스턴스/멀티 태스크 환경에서는 각 인스턴스가 자기 캐시 사본을 가지므로, 공유 캐시 없이 운영하면 인스턴스마다 stale 상태가 달라질 수 있다.
+Next.js 공식 self-hosting 문서 기준으로 ISR을 포함한 서버 캐시는 기본적으로 각 서버 인스턴스의 로컬 파일시스템에 저장된다. 멀티 인스턴스/멀티 태스크 환경에서는 각 인스턴스가 자기 캐시 사본을 가지므로, 공유 캐시 없이 운영하면 인스턴스마다 stale 상태가 달라질 수 있다. 이 저장소는 그 문제를 단순 설명이 아니라, 실제 UI와 staging 배포 결과로 before / after 비교할 수 있게 만드는 것이 목적이다.
 
-이 프로젝트는 그 문제를 Redis 기반 공유 캐시로 줄이고, 실제로 자원 사용량과 응답시간이 얼마나 좋아지는지 실험하는 것이 목적이다.
+이 프로젝트는 그 문제를 Redis 기반 공유 캐시로 줄이고, 실제로 원본 호출량, 응답 일관성, 무효화 반영 차이가 어떻게 달라지는지 실험하는 것이 목적이다.
 
 ### `cacheHandler` vs `cacheHandlers`
 

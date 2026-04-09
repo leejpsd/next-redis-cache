@@ -13,6 +13,7 @@ const {
 
 const ENTRY_KEY_PREFIX = "next-incremental:entry:";
 const TAG_META_PREFIX = "next-incremental:tag:";
+const INSTANCE_LOCAL_TAG_PREFIX = "instance-local:";
 
 const useMemoryFallback = process.env.CACHE_HANDLER_FALLBACK === "memory";
 let redisClient = null;
@@ -149,6 +150,10 @@ function normalizeTags(tags) {
   return Array.isArray(tags) ? tags.filter(Boolean) : [];
 }
 
+function shouldUseLocalIncrementalStore(tags) {
+  return normalizeTags(tags).some((tag) => tag.startsWith(INSTANCE_LOCAL_TAG_PREFIX));
+}
+
 function extractTagsFromValue(value, ctx) {
   if (!value) return [];
 
@@ -224,7 +229,12 @@ class IncrementalRedisCacheHandler {
 
   async get(cacheKey, ctx) {
     try {
-      const client = await connectClient();
+      const requestedTags = normalizeTags([
+        ...(ctx && ctx.tags ? ctx.tags : []),
+        ...(ctx && ctx.softTags ? ctx.softTags : []),
+      ]);
+      const shouldUseLocalStore = shouldUseLocalIncrementalStore(requestedTags);
+      const client = shouldUseLocalStore ? null : await connectClient();
       const stored = client
         ? await client.get(entryKey(cacheKey))
         : memoryEntries.get(entryKey(cacheKey));
@@ -257,7 +267,9 @@ class IncrementalRedisCacheHandler {
     if (!data) return;
 
     try {
-      const client = await connectClient();
+      const tags = extractTagsFromValue(data, ctx);
+      const shouldUseLocalStore = shouldUseLocalIncrementalStore(tags);
+      const client = shouldUseLocalStore ? null : await connectClient();
       const record = {
         lastModified: Date.now(),
         value: data,
@@ -279,7 +291,8 @@ class IncrementalRedisCacheHandler {
     const normalizedTags = normalizeTags([tags].flat());
     if (normalizedTags.length === 0) return;
 
-    const client = await connectClient();
+    const shouldUseLocalStore = shouldUseLocalIncrementalStore(normalizedTags);
+    const client = shouldUseLocalStore ? null : await connectClient();
     const now = Date.now();
     const payload = durations
       ? {

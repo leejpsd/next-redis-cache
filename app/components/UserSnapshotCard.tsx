@@ -95,39 +95,6 @@ export function UserSnapshotCard({
             </p>
           </div>
 
-          <dl className="grid gap-3 text-sm sm:grid-cols-2">
-            <div className="metric-card rounded-2xl p-4">
-              <dt className="text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-stone-500">
-                Email
-              </dt>
-              <dd className="mt-2 break-all font-medium text-stone-950">
-                {user.email}
-              </dd>
-            </div>
-            <div className="metric-card rounded-2xl p-4">
-              <dt className="text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-stone-500">
-                Phone
-              </dt>
-              <dd className="mt-2 font-medium text-stone-950">{user.phone}</dd>
-            </div>
-            <div className="metric-card rounded-2xl p-4">
-              <dt className="text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-stone-500">
-                Runtime
-              </dt>
-              <dd className="mt-2 font-mono text-sm text-stone-950">
-                {generatedBy.instanceId}
-              </dd>
-            </div>
-            <div className="metric-card rounded-2xl p-4">
-              <dt className="text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-stone-500">
-                Process
-              </dt>
-              <dd className="mt-2 font-mono text-sm text-stone-950">
-                boot {generatedBy.bootId.slice(0, 8)} · pid {generatedBy.pid}
-              </dd>
-            </div>
-          </dl>
-
           <div className="flex flex-wrap gap-2 text-xs">
             <span className="rounded-full border border-stone-300/80 bg-white/80 px-3 py-1.5 font-mono text-stone-700">
               cache by {generatedBy.instanceId}
