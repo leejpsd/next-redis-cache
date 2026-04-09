@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
 type HealthResponse = {
   status: "ok" | "degraded";
@@ -75,48 +75,37 @@ export function MetricsPanel() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [metrics, setMetrics] = useState<MetricsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isRefreshing, startTransition] = useTransition();
+
+  const load = async () => {
+    try {
+      const [healthRes, metricsRes] = await Promise.all([
+        fetch("/api/health", { cache: "no-store" }),
+        fetch("/api/metrics", { cache: "no-store" }),
+      ]);
+
+      if (!healthRes.ok) {
+        throw new Error(`health status ${healthRes.status}`);
+      }
+      if (!metricsRes.ok) {
+        throw new Error(`metrics status ${metricsRes.status}`);
+      }
+
+      const [healthJson, metricsJson] = await Promise.all([
+        healthRes.json() as Promise<HealthResponse>,
+        metricsRes.json() as Promise<MetricsResponse>,
+      ]);
+
+      setHealth(healthJson);
+      setMetrics(metricsJson);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "failed to load metrics");
+    }
+  };
 
   useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      try {
-        const [healthRes, metricsRes] = await Promise.all([
-          fetch("/api/health", { cache: "no-store" }),
-          fetch("/api/metrics", { cache: "no-store" }),
-        ]);
-
-        if (!healthRes.ok) {
-          throw new Error(`health status ${healthRes.status}`);
-        }
-        if (!metricsRes.ok) {
-          throw new Error(`metrics status ${metricsRes.status}`);
-        }
-
-        const [healthJson, metricsJson] = await Promise.all([
-          healthRes.json() as Promise<HealthResponse>,
-          metricsRes.json() as Promise<MetricsResponse>,
-        ]);
-
-        if (!cancelled) {
-          setHealth(healthJson);
-          setMetrics(metricsJson);
-          setError(null);
-        }
-      } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : "failed to load metrics");
-        }
-      }
-    };
-
     void load();
-    const timer = setInterval(load, 3000);
-
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
   }, []);
 
   const statusStyle = useMemo(() => {
@@ -135,9 +124,19 @@ export function MetricsPanel() {
             Runtime metrics
           </h3>
         </div>
-        <span className={`rounded-full border px-2 py-0.5 text-xs ${statusStyle}`}>
-          {health ? health.status.toUpperCase() : "LOADING"}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className={`rounded-full border px-2 py-0.5 text-xs ${statusStyle}`}>
+            {health ? health.status.toUpperCase() : "LOADING"}
+          </span>
+          <button
+            type="button"
+            onClick={() => startTransition(() => void load())}
+            disabled={isRefreshing}
+            className="rounded-full border border-stone-300/80 bg-white/85 px-3 py-1 text-xs font-medium text-stone-700 transition hover:border-stone-400 hover:bg-white disabled:cursor-wait disabled:opacity-60"
+          >
+            {isRefreshing ? "새로고침 중" : "새로고침"}
+          </button>
+        </div>
       </div>
 
       {error ? (
