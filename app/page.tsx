@@ -1,6 +1,7 @@
 // app/page.tsx
 import { Suspense } from "react";
 import { CacheControls } from "./components/CacheControls";
+import InstanceCachedUserProfile from "./components/InstanceCachedUserProfile";
 import LiveUserProfile from "./components/LiveUserProfile";
 import { MetricsPanel } from "./components/MetricsPanel";
 import { PrefetchLab } from "./components/PrefetchLab";
@@ -23,19 +24,19 @@ export default async function Home() {
               </div>
 
               <p className="max-w-3xl text-sm leading-6 text-stone-600 sm:text-[0.95rem]">
-                ECS Fargate 여러 task에서 `random-user` 캐시가 동일하게 공유되는지
-                검증합니다. 왼쪽 카드는 원본 API를 매번 다시 호출하는 no-store
-                기준선이고, 오른쪽 카드는 Redis shared cache가 적용된 카드입니다.
-                soft revalidate와 hard invalidate의 차이도 같은 화면에서 바로
-                비교할 수 있습니다.
+                이 화면은 왜 Redis shared cache가 필요한지를 before / after로
+                보여주기 위한 실험입니다. 첫 카드는 캐시가 없는 기준선이고, 둘째
+                카드는 일반적인 Next fetch 캐시가 멀티 인스턴스에서 어떻게 갈라질
+                수 있는지 보여주는 before, 셋째 카드는 Redis로 중앙화한 after
+                결과입니다.
               </p>
 
               <div className="flex flex-wrap gap-2 text-[0.72rem] font-medium text-stone-700">
                 <span className="rounded-full border border-stone-300/80 bg-white/80 px-3 py-1.5">
-                  2 tasks
+                  3 cards
                 </span>
                 <span className="rounded-full border border-stone-300/80 bg-white/80 px-3 py-1.5">
-                  Redis cache
+                  baseline / before / after
                 </span>
                 <span className="rounded-full border border-stone-300/80 bg-white/80 px-3 py-1.5">
                   soft / hard
@@ -50,12 +51,12 @@ export default async function Home() {
                     Experiment Focus
                   </p>
                   <p className="mt-2 max-w-md text-sm font-medium leading-6 text-stone-900">
-                    왼쪽은 항상 바뀌는 기준선, 오른쪽은 유지되어야 하는 shared cache
-                    결과입니다.
+                    baseline, before, after를 한 화면에 놓고 멀티 인스턴스 캐시
+                    불일치와 Redis 중앙화 효과를 바로 비교합니다.
                   </p>
                 </div>
                 <span className="rounded-full border border-stone-300/80 bg-white/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-700">
-                  compare
+                  before / after
                 </span>
               </div>
 
@@ -86,9 +87,12 @@ export default async function Home() {
           <CacheControls lastUpdatedAt={fetchedAt} />
         </section>
 
-        <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:items-stretch">
+        <section className="grid gap-5 xl:grid-cols-3 xl:items-stretch">
           <Suspense fallback={<SkeletonCard />}>
             <LiveUserProfile />
+          </Suspense>
+          <Suspense fallback={<SkeletonCard />}>
+            <InstanceCachedUserProfile />
           </Suspense>
           <Suspense fallback={<SkeletonCard />}>
             <UserProfile />

@@ -5,6 +5,7 @@ const RANDOM_USER_URL = "https://randomuser.me/api";
 const REQUEST_TIMEOUT_MS = 4000;
 const MAX_ATTEMPTS = 3;
 const RETRYABLE_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
+const INSTANCE_LOCAL_RANDOM_USER_TAG = "instance-local:random-user";
 
 const FALLBACK_RANDOM_USER_RESPONSE = {
   results: [
@@ -91,12 +92,31 @@ export type RandomUserPayload = {
   generatedBy: RuntimeIdentity;
 };
 
+function resolveFetchedAtFromHeaders(headers: Headers): number {
+  const dateHeader = headers.get("date");
+  if (!dateHeader) {
+    return Date.parse(FALLBACK_RANDOM_USER_RESPONSE.results[0].registered.date);
+  }
+
+  const parsed = Date.parse(dateHeader);
+  if (Number.isNaN(parsed)) {
+    return Date.parse(FALLBACK_RANDOM_USER_RESPONSE.results[0].registered.date);
+  }
+
+  return parsed;
+}
+
 function isRetryableStatus(status: number): boolean {
   return RETRYABLE_STATUS.has(status);
 }
 
 async function fetchRandomUserFromOrigin(
-  init?: RequestInit
+  init?: RequestInit & {
+    next?: {
+      revalidate?: number;
+      tags?: string[];
+    };
+  }
 ): Promise<RandomUserPayload> {
   let lastError: Error | null = null;
 
@@ -117,7 +137,7 @@ async function fetchRandomUserFromOrigin(
 
       return {
         ...(await response.json()),
-        fetchedAt: Date.now(),
+        fetchedAt: resolveFetchedAtFromHeaders(response.headers),
         source: "origin",
         generatedBy: getRuntimeIdentity(),
       } as RandomUserPayload;
@@ -138,7 +158,7 @@ async function fetchRandomUserFromOrigin(
 function getFallbackRandomUser(): RandomUserPayload {
   return {
     ...FALLBACK_RANDOM_USER_RESPONSE,
-    fetchedAt: Date.now(),
+    fetchedAt: Date.parse(FALLBACK_RANDOM_USER_RESPONSE.results[0].registered.date),
     source: "fallback",
     generatedBy: getRuntimeIdentity(),
   };
@@ -171,6 +191,24 @@ export async function getLiveRandomUser(): Promise<RandomUserPayload> {
       "[getLiveRandomUser] Falling back after upstream failure:",
       error instanceof Error ? error.message : String(error)
     );
+    return getFallbackRandomUser();
+  }
+}
+
+export async function getInstanceCachedRandomUser(): Promise<RandomUserPayload> {
+  try {
+    return await fetchRandomUserFromOrigin({
+      next: {
+        revalidate: 60,
+        tags: [INSTANCE_LOCAL_RANDOM_USER_TAG],
+      },
+    });
+  } catch (error) {
+    console.error(
+      "[getInstanceCachedRandomUser] Falling back after upstream failure:",
+      error instanceof Error ? error.message : String(error)
+    );
+
     return getFallbackRandomUser();
   }
 }
