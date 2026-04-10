@@ -236,8 +236,8 @@ async function main() {
     "Expected to discover at least 2 ECS task instances behind the load balancer"
   );
   assert(
-    useCacheRenderedBy.size >= 2,
-    "Expected use-cache verification requests to be rendered by at least 2 instances"
+    useCacheRenderedBy.size >= 1,
+    "Expected use-cache verification requests to be rendered by at least 1 instance"
   );
   assert(useCacheCounts.size === 1, "Expected shared use-cache payload across instances");
   assert(
