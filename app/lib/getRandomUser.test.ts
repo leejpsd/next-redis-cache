@@ -20,6 +20,9 @@ describe("getRandomUser", () => {
   it("returns origin payload when upstream succeeds", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
+      headers: new Headers({
+        date: "Thu, 10 Apr 2026 00:00:00 GMT",
+      }),
       json: async () => ({
         results: [
           {
