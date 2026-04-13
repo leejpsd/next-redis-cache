@@ -212,3 +212,21 @@ export async function getInstanceCachedRandomUser(): Promise<RandomUserPayload> 
     return getFallbackRandomUser();
   }
 }
+
+export async function getFetchRevalidatedSharedRandomUser(): Promise<RandomUserPayload> {
+  try {
+    return await fetchRandomUserFromOrigin({
+      next: {
+        revalidate: 60,
+        tags: ["shared-fetch:random-user"],
+      },
+    });
+  } catch (error) {
+    console.error(
+      "[getFetchRevalidatedSharedRandomUser] Falling back after upstream failure:",
+      error instanceof Error ? error.message : String(error)
+    );
+
+    return getFallbackRandomUser();
+  }
+}
