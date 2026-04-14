@@ -19,6 +19,7 @@
     "test:staging:shared-cache": "node scripts/verify-staging-shared-cache.mjs",
     "test:load:baseline": "bash scripts/run-k6-baseline.sh",
     "test:load:strategies": "bash scripts/run-k6-rendering-strategies.sh",
+    "test:browser:strategies": "bash scripts/run-browser-strategies.sh",
     "deploy:staging": "bash scripts/deploy-staging.sh"
   },
   "dependencies": {
@@ -28,7 +29,9 @@
     "redis": "^5.10.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",
+    "@playwright/test": "^1.55.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
