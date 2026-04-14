@@ -7,7 +7,15 @@ import { ExperimentSnapshot } from "./ExperimentSnapshot";
 type ClientState =
   | { status: "loading" }
   | { status: "error"; message: string }
-  | { status: "ready"; payload: RandomUserPayload };
+  | {
+      status: "ready";
+      payload: RandomUserPayload;
+      metrics: {
+        fetchDurationMs: number;
+        readyDurationMs: number;
+        bffDurationMs: number | null;
+      };
+    };
 
 type ClientFetchedRandomUserClientProps = {
   eyebrow: string;
@@ -37,6 +45,24 @@ function mapOriginPayload(raw: RandomUserOriginResponse, mode: "direct-client" |
   };
 }
 
+function parseBffDuration(response: Response): number | null {
+  const headerValue =
+    response.headers.get("x-bff-duration-ms") ??
+    response.headers.get("server-timing");
+
+  if (!headerValue) {
+    return null;
+  }
+
+  const match = headerValue.match(/bff;dur=([\d.]+)/) ?? headerValue.match(/([\d.]+)/);
+  if (!match) {
+    return null;
+  }
+
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export function ClientFetchedRandomUserClient({
   eyebrow,
   title,
@@ -52,9 +78,11 @@ export function ClientFetchedRandomUserClient({
 
     async function load() {
       try {
+        const startedAt = performance.now();
         const response = await fetch(endpoint, {
           cache: "no-store",
         });
+        const responseReceivedAt = performance.now();
 
         if (!response.ok) {
           throw new Error(`Failed to fetch client payload: ${response.status}`);
@@ -64,9 +92,18 @@ export function ClientFetchedRandomUserClient({
           (await response.json()) as RandomUserOriginResponse,
           mode
         );
+        const readyAt = performance.now();
 
         if (!cancelled) {
-          setState({ status: "ready", payload });
+          setState({
+            status: "ready",
+            payload,
+            metrics: {
+              fetchDurationMs: responseReceivedAt - startedAt,
+              readyDurationMs: readyAt - startedAt,
+              bffDurationMs: parseBffDuration(response),
+            },
+          });
         }
       } catch (error) {
         if (!cancelled) {
@@ -127,6 +164,39 @@ export function ClientFetchedRandomUserClient({
       strategySummary={strategySummary}
       payload={state.payload}
       renderer={null}
-    />
+    >
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-2xl border border-stone-300/80 bg-white/80 px-4 py-3">
+          <p className="text-[11px] uppercase tracking-[0.14em] text-stone-500">
+            Browser Fetch
+          </p>
+          <p className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-stone-950">
+            {state.metrics.fetchDurationMs.toFixed(1)}ms
+          </p>
+        </div>
+        <div className="rounded-2xl border border-stone-300/80 bg-white/80 px-4 py-3">
+          <p className="text-[11px] uppercase tracking-[0.14em] text-stone-500">
+            Ready To Paint
+          </p>
+          <p className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-stone-950">
+            {state.metrics.readyDurationMs.toFixed(1)}ms
+          </p>
+        </div>
+        <div className="rounded-2xl border border-stone-300/80 bg-white/80 px-4 py-3">
+          <p className="text-[11px] uppercase tracking-[0.14em] text-stone-500">
+            BFF Server Time
+          </p>
+          <p className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-stone-950">
+            {state.metrics.bffDurationMs === null
+              ? "-"
+              : `${state.metrics.bffDurationMs.toFixed(1)}ms`}
+          </p>
+        </div>
+      </div>
+
+      <pre id="client-fetch-metrics" className="sr-only">
+        {JSON.stringify(state.metrics)}
+      </pre>
+    </ExperimentSnapshot>
   );
 }
