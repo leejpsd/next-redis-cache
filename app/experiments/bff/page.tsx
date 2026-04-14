@@ -1,0 +1,14 @@
+import { ClientFetchedRandomUserClient } from "../components/ClientFetchedRandomUserClient";
+
+export default function BffExperimentPage() {
+  return (
+    <ClientFetchedRandomUserClient
+      eyebrow="Experiment / BFF"
+      title="Client via BFF"
+      description="브라우저는 내부 BFF 엔드포인트만 호출하고, 프론트 서버가 외부 origin을 대신 호출합니다. 보안과 응답 shape 제어는 쉬워지지만, 프론트 서버가 네트워크 중계 비용을 떠안습니다."
+      strategySummary="이 경로는 '브라우저 직접 호출'과 '프론트 서버 경유' 사이의 trade-off를 보는 용도입니다. 이후 direct client call과 함께 응답시간, origin 호출 수, 운영 복잡도를 비교하게 됩니다."
+      endpoint="/api/bff/random-user"
+      mode="bff"
+    />
+  );
+}

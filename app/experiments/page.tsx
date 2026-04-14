@@ -4,8 +4,15 @@ const experimentLinks = [
   {
     href: "/experiments/csr",
     eyebrow: "Baseline",
-    title: "CSR",
-    description: "브라우저가 hydrate 이후 데이터를 가져오는 기준선입니다.",
+    title: "Direct client call",
+    description: "브라우저가 외부 origin을 직접 호출하는 CSR 기준선입니다.",
+  },
+  {
+    href: "/experiments/bff",
+    eyebrow: "Client + Server Edge",
+    title: "BFF",
+    description:
+      "브라우저는 내부 BFF 엔드포인트만 호출하고, 프론트 서버가 외부 origin을 대신 호출합니다.",
   },
   {
     href: "/experiments/ssr",
@@ -40,8 +47,8 @@ export default function ExperimentsIndexPage() {
           </h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-stone-600">
             메인 페이지는 before / after를 보여주는 데모이고, 이 영역은 각 렌더링
-            전략을 독립된 경로로 분리해 성능과 비용의 trade-off를 측정하기 위한
-            실험용 진입점입니다.
+            전략과 네트워크 경로를 독립된 경로로 분리해 성능과 비용의
+            trade-off를 측정하기 위한 실험용 진입점입니다.
           </p>
         </section>
 
