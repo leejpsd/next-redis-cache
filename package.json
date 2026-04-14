@@ -22,7 +22,7 @@
     "deploy:staging": "bash scripts/deploy-staging.sh"
   },
   "dependencies": {
-    "next": "16.2.2",
+    "next": "^16.2.3",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "redis": "^5.10.0"
@@ -34,7 +34,7 @@
     "@types/react-dom": "^19",
     "@vitest/coverage-v8": "^4.0.18",
     "eslint": "^9",
-    "eslint-config-next": "16.2.2",
+    "eslint-config-next": "^16.2.3",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.0.18"

@@ -1,8 +1,19 @@
+import { Suspense } from "react";
 import { getRandomUser } from "@/app/lib/getRandomUser";
 import { getRuntimeIdentity } from "@/lib/runtime-context";
+import { connection } from "next/server";
 import { ExperimentSnapshot } from "../components/ExperimentSnapshot";
 
-export default async function SharedCacheExperimentPage() {
+export default function SharedCacheExperimentPage() {
+  return (
+    <Suspense fallback={<ExperimentPageFallback title="Shared cache with Cache Components" />}>
+      <SharedCacheExperimentContent />
+    </Suspense>
+  );
+}
+
+async function SharedCacheExperimentContent() {
+  await connection();
   const payload = await getRandomUser();
 
   return (
@@ -14,5 +25,23 @@ export default async function SharedCacheExperimentPage() {
       payload={payload}
       renderer={getRuntimeIdentity()}
     />
+  );
+}
+
+function ExperimentPageFallback({ title }: { title: string }) {
+  return (
+    <main className="app-shell min-h-screen px-4 py-6 sm:px-6 sm:py-7 lg:px-8">
+      <div className="mx-auto w-full max-w-5xl">
+        <section className="glass-card rounded-[2rem] px-6 py-12 text-center sm:px-7">
+          <p className="eyebrow">Experiment / Cache Components</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-stone-950">
+            {title}
+          </h1>
+          <p className="mt-4 text-sm leading-6 text-stone-600">
+            요청 시 캐시 결과를 준비하는 중입니다.
+          </p>
+        </section>
+      </div>
+    </main>
   );
 }
