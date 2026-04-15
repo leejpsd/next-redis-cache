@@ -1,6 +1,18 @@
+import { Suspense } from "react";
+import { connection } from "next/server";
 import { ClientFetchedRandomUserClient } from "../components/ClientFetchedRandomUserClient";
 
 export default function CsrExperimentPage() {
+  return (
+    <Suspense fallback={<ExperimentPageFallback title="Direct client call baseline" />}>
+      <CsrExperimentContent />
+    </Suspense>
+  );
+}
+
+async function CsrExperimentContent() {
+  await connection();
+
   return (
     <ClientFetchedRandomUserClient
       eyebrow="Experiment / CSR"
@@ -10,5 +22,23 @@ export default function CsrExperimentPage() {
       endpoint="https://randomuser.me/api"
       mode="direct-client"
     />
+  );
+}
+
+function ExperimentPageFallback({ title }: { title: string }) {
+  return (
+    <main className="app-shell min-h-screen px-4 py-6 sm:px-6 sm:py-7 lg:px-8">
+      <div className="mx-auto w-full max-w-5xl">
+        <section className="glass-card rounded-[2rem] px-6 py-12 text-center sm:px-7">
+          <p className="eyebrow">Experiment / CSR</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-stone-950">
+            {title}
+          </h1>
+          <p className="mt-4 text-sm leading-6 text-stone-600">
+            브라우저 실험용 기본 화면을 준비하는 중입니다.
+          </p>
+        </section>
+      </div>
+    </main>
   );
 }
