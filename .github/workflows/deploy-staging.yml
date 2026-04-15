@@ -45,7 +45,10 @@ jobs:
         id: image
         run: |
           IMAGE_URI=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}:${GITHUB_SHA}
-          docker build -t "$IMAGE_URI" .
+          docker build \
+            --build-arg "DEPLOYMENT_VERSION=${GITHUB_SHA}" \
+            -t "$IMAGE_URI" \
+            .
           docker push "$IMAGE_URI"
           echo "image_uri=$IMAGE_URI" >> "$GITHUB_OUTPUT"
 

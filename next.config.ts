@@ -6,6 +6,9 @@ const enableRedisCacheHandler =
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  deploymentId: process.env.DEPLOYMENT_VERSION,
+  generateBuildId: async () =>
+    process.env.DEPLOYMENT_VERSION || process.env.GIT_HASH || "dev-build",
   // ISR/route cache (singular cacheHandler)와
   // Cache Components(use cache, plural cacheHandlers)를 각각 Redis로 공유한다.
   cacheHandler: enableRedisCacheHandler
