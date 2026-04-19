@@ -60,12 +60,64 @@ async function measureRoute(browser, route) {
   for (let iteration = 1; iteration <= ITERATIONS; iteration += 1) {
     const page = await browser.newPage();
     const startedAt = performance.now();
+    const failedRequests = [];
+    const pageErrors = [];
+    const consoleErrors = [];
+
+    page.on("response", async (response) => {
+      if (response.status() >= 400) {
+        failedRequests.push({
+          url: response.url(),
+          status: response.status(),
+        });
+      }
+    });
+
+    page.on("pageerror", (error) => {
+      pageErrors.push(String(error));
+    });
+
+    page.on("console", (message) => {
+      if (message.type() === "error") {
+        consoleErrors.push(message.text());
+      }
+    });
 
     try {
       await page.goto(new URL(route.path, BASE_URL).toString(), {
         waitUntil: "domcontentloaded",
       });
-      await page.waitForSelector("#client-fetch-metrics");
+      await page.waitForFunction(() => {
+        return (
+          document.querySelector("#client-fetch-metrics") ||
+          document.querySelector("p.text-rose-700")
+        );
+      });
+
+      const errorText = await page
+        .locator("p.text-rose-700")
+        .first()
+        .textContent()
+        .catch(() => null);
+
+      if (errorText) {
+        throw new Error(
+          [
+            `Client route rendered an error state: ${errorText}`,
+            failedRequests.length
+              ? `Failed requests: ${failedRequests
+                  .map((entry) => `${entry.status} ${entry.url}`)
+                  .join(", ")}`
+              : null,
+            pageErrors.length ? `Page errors: ${pageErrors.join(" | ")}` : null,
+            consoleErrors.length
+              ? `Console errors: ${consoleErrors.join(" | ")}`
+              : null,
+          ]
+            .filter(Boolean)
+            .join("\n")
+        );
+      }
 
       const metricsText = await page.locator("#client-fetch-metrics").textContent();
       const payloadText = await page
@@ -89,6 +141,25 @@ async function measureRoute(browser, route) {
             : Number(metrics.bffDurationMs.toFixed(1)),
         generatedBy: payload.generatedBy?.instanceId ?? "unknown",
       });
+    } catch (error) {
+      const bodyText = await page.locator("body").textContent().catch(() => null);
+      const diagnosticLines = [
+        error instanceof Error ? error.message : String(error),
+        failedRequests.length
+          ? `Failed requests: ${failedRequests
+              .map((entry) => `${entry.status} ${entry.url}`)
+              .join(", ")}`
+          : null,
+        pageErrors.length ? `Page errors: ${pageErrors.join(" | ")}` : null,
+        consoleErrors.length ? `Console errors: ${consoleErrors.join(" | ")}` : null,
+        bodyText ? `Body excerpt: ${bodyText.trim().slice(0, 400)}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      throw new Error(
+        `Failed to measure ${route.key} iteration ${iteration}\n${diagnosticLines}`
+      );
     } finally {
       await page.close();
     }

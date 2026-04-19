@@ -40,6 +40,20 @@
 - Redis를 공유 캐시 저장소와 무효화 조정 계층으로 사용한다.
 - 결과를 TTFB, p95/p99, origin fetch 감소, 일관성, 운영 비용 관점으로 비교한다.
 
+## 무엇을 증명했나
+
+staging에서 지금까지 확인한 핵심은 아래 세 가지다.
+
+1. 기본 Next 캐시는 멀티 인스턴스에서 인스턴스별로 갈라질 수 있다
+2. Redis shared cache를 붙이면 여러 ECS task에서도 같은 유저가 유지된다
+3. hard invalidation과 soft revalidation은 실제 체감이 분명히 다르다
+
+현재 UI는 이 차이를 바로 보여주기 위해 세 장의 카드를 사용한다.
+
+- `Live`: `no-store` 기준선
+- `Before`: 기본 Next 캐시가 멀티 인스턴스에서 갈라지는 상태
+- `After`: Redis shared cache로 중앙화된 상태
+
 ## 현재 상태
 
 2026-04-08 기준으로 아래 항목을 확인했다.
@@ -63,6 +77,52 @@
 - Webhook 시뮬레이션 기반 hard invalidation 정상 동작 확인
 - Server Action 기반 `revalidateTag("max")`는 soft revalidation 특성상 즉시 변경이 아닌, 잠시 뒤 새 값이 반영되는 것 확인
 
+## 최종 측정 결과 (2026-04-19)
+
+staging ALB + ECS Fargate 2 task + ElastiCache `cache.t4g.micro` 구성에서 k6로 측정했다. 원본 데이터는 `docs/load-test/2026-04-19/`에 있다.
+
+### 기본 성능 (5 VU × 45s, constant)
+
+| 전략 | avg | p95 |
+| --- | --- | --- |
+| SSR (`no-store`) | 481ms | 855ms |
+| ISR (fetch revalidate 60s) | 222ms | 324ms |
+| Cache Components + Redis | 228ms | 354ms |
+
+### 스파이크 (30 VU × 3 scenarios × 5m hold, 동시 피크 90 VUs)
+
+| 전략 | avg | p95 | 에러율 |
+| --- | --- | --- | --- |
+| SSR | 1120ms | 1.95s | 0.31% |
+| ISR (fetch revalidate) | 482ms | 1.04s | 0.75% |
+| Cache Components + Redis | 899ms | 1.79s | 0.38% |
+
+총 20,377 요청 이후에도 Redis `entryKeys` 수는 1개로 유지됨 → 스파이크에서도 **원본 호출은 TTL 주기만큼만 발생**했다는 근거.
+
+### 소크 (shared-cache, 10 VU × 30m)
+
+| 지표 | 값 |
+| --- | --- |
+| 총 요청 수 | 18,164 |
+| avg | 190ms |
+| p95 | 217ms |
+| 에러율 | 0.00% |
+| Redis keys (시작/종료) | 1 / 1 (누수 없음) |
+
+### 비용 (월 예상, ap-southeast-2)
+
+| 항목 | 월 비용 |
+| --- | --- |
+| ECS Fargate (2 task × 0.5 vCPU × 1 GB) | $44.98 |
+| ALB | $25.55 |
+| ElastiCache Redis `cache.t4g.micro` | $16.06 |
+| CloudWatch + Data Transfer | ~$11.72 |
+| **합계** | **$98.31/월** |
+
+전략 선택이 기본 인프라 비용을 크게 바꾸지는 않지만, **SSR은 태스크 증설 시점을 앞당긴다**. Redis `cache.t4g.micro`($16/월)는 태스크 1개 절감($22.49/월)만으로 회수된다.
+
+자세한 분석: [`docs/blog/next16-redis-rendering-strategies-part-4.md`](./docs/blog/next16-redis-rendering-strategies-part-4.md), [`docs/cost-estimate.md`](./docs/cost-estimate.md), [`docs/load-test/summary.md`](./docs/load-test/summary.md).
+
 ## Staging
 
 - Staging URL: http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com
@@ -77,6 +137,8 @@ Staging에서 확인한 핵심 시나리오:
 3. `After` 카드는 Redis shared cache를 통해 여러 task에서도 같은 유저가 유지되는 상태를 보여준다.
 4. Webhook 시뮬레이션 무효화 후 다시 요청하면 새로운 유저가 바로 보일 수 있다.
 5. Server Action 무효화는 `stale-while-revalidate` 성격이라 즉시 바뀌지 않을 수 있고, 잠시 뒤 다시 요청했을 때 새로운 유저가 보이는 것이 정상이다.
+
+더 자세한 재현 과정과 트러블슈팅은 [`docs/experiments/multi-instance-consistency-before-after.md`](/Users/jungpyo/workspace/next-redis-cache-demo/docs/experiments/multi-instance-consistency-before-after.md) 에 정리했다.
 
 캐시 모델 검증 결과:
 
@@ -109,17 +171,12 @@ DISABLE_REDIS_CACHE_HANDLER=true npm run build
 
 ## 아직 부족한 점
 
-지금 상태는 운영형 베이스는 갖췄지만, 최종 포트폴리오 목적에 맞추려면 아래 작업이 더 필요하다.
+최종 측정까지 끝낸 뒤에도 남아 있는 항목들.
 
-- ISR/route cache용 `cacheHandler`(singular) 실환경 검증
-  - 초기 구현은 추가됐지만, 멀티 태스크 환경에서의 일관성 검증과 장애 실험이 아직 없다
-- `app/lib/getRandomUser.ts`를 운영형 fetch 샘플로 고도화
-  - `cacheLife`, timeout, retry, fallback, fetch policy 정리 필요
-- 메트릭 저장소가 아직 프로세스 메모리 중심
-  - 멀티 인스턴스 전역 집계 관점 보강 필요
-- README에 실측 지표, 스크린샷, 그래프, before/after 표를 더 보강해야 함
-- 부하 테스트, 장애 실험, 비용 추정, 실험 비교 문서가 템플릿 단계
-- health/build 과정에서 Redis 미연결 시 노이즈 로그가 남음
+- `/api/health`가 `checkRedisPing` 경로에서만 Redis 연결을 잘못 판정해 503을 반환 (다른 Redis 경로는 정상). `docs/incident/health-endpoint-redis-ping-mismatch.md` 참조.
+- staging에서 `/_next/static/chunks/*`가 404를 반환해 브라우저 기반 CSR/BFF 재측정이 막혔다. Turbopack/webpack 빌드 산출물 불일치로 보이며 `docs/incident/static-chunk-404-turbopack-mismatch.md`에 기록.
+- 메트릭 저장소가 프로세스 메모리 기반이라 멀티 인스턴스 전역 집계는 별도 파이프라인 필요.
+- ISR/route cache용 `cacheHandler`(singular)의 실환경 일관성 검증과 Redis 장애 실험은 staging 전환 후 추가 계획.
 
 ## 핵심 기능
 
