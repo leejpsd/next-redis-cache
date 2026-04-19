@@ -157,9 +157,14 @@ export function CacheControls({ lastUpdatedAt }: CacheControlsProps) {
         </button>
       </div>
 
-      <div className="mt-4 rounded-2xl border border-stone-300/80 bg-stone-950 px-4 py-4 text-stone-100">
-        <p className="text-sm font-semibold">{status.title}</p>
-        <p className="mt-2 text-sm leading-6 text-stone-300">{status.description}</p>
+      <div
+        className="status-brief mt-4 rounded-2xl px-4 py-4"
+        data-state={cacheState}
+      >
+        <p className="text-sm font-semibold text-stone-100">{status.title}</p>
+        <p className="mt-2 text-sm leading-6 text-stone-300">
+          {status.description}
+        </p>
       </div>
     </aside>
   );

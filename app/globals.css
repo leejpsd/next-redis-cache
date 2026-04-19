@@ -1,29 +1,42 @@
 @import "tailwindcss";
 
+/*
+ * Vercel-inspired dark palette for next-redis-cache-demo (2026-04-20 refresh)
+ * - 검정 배경 + 고대비 흰 텍스트
+ * - 얇은 회색 보더, 모노스페이스 수치 강조
+ * - 상태 뱃지: emerald(success) / amber(soft) / rose(hard)
+ */
 :root {
-  --background: #f3efe7;
-  --foreground: #1f1a17;
-  --surface: rgba(255, 252, 247, 0.78);
-  --surface-strong: rgba(255, 250, 243, 0.92);
-  --border: rgba(55, 45, 36, 0.12);
-  --muted: #6d6258;
-  --accent: #14532d;
-  --accent-soft: rgba(20, 83, 45, 0.1);
-  --warning: #9a6700;
-  --warning-soft: rgba(154, 103, 0, 0.1);
-  --danger: #9f1239;
-  --danger-soft: rgba(159, 18, 57, 0.1);
+  --background: #000000;
+  --surface: #0a0a0a;
+  --surface-raised: #111111;
+  --surface-hover: #141414;
+  --foreground: #ededed;
+  --foreground-muted: #a1a1a1;
+  --foreground-subtle: #6b6b6b;
+
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+
+  --accent: #00dc82;          /* Vercel geist green */
+  --accent-soft: rgba(0, 220, 130, 0.12);
+  --warning: #f5a623;
+  --warning-soft: rgba(245, 166, 35, 0.12);
+  --danger: #ff4d4f;
+  --danger-soft: rgba(255, 77, 79, 0.12);
+  --info: #3291ff;
+  --info-soft: rgba(50, 145, 255, 0.14);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans:
-    "IBM Plex Sans KR", "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo",
-    "Malgun Gothic", sans-serif;
+    "Geist", "Inter", "IBM Plex Sans KR", "Pretendard", "Noto Sans KR",
+    "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --font-mono:
-    "JetBrains Mono", "SFMono-Regular", "SF Mono", "Consolas", "Menlo",
-    monospace;
+    "Geist Mono", "JetBrains Mono", "SFMono-Regular", "SF Mono", "Consolas",
+    "Menlo", monospace;
 }
 
 body {
@@ -31,10 +44,18 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
   min-height: 100vh;
+  font-feature-settings: "cv11", "ss01", "ss03";
   background-image:
-    radial-gradient(circle at top left, rgba(212, 188, 142, 0.28), transparent 30%),
-    radial-gradient(circle at top right, rgba(135, 162, 143, 0.18), transparent 26%),
-    linear-gradient(180deg, #f7f2ea 0%, #f2ede4 42%, #ede8df 100%);
+    radial-gradient(
+      circle at 20% -10%,
+      rgba(50, 145, 255, 0.08),
+      transparent 40%
+    ),
+    radial-gradient(
+      circle at 90% -20%,
+      rgba(0, 220, 130, 0.07),
+      transparent 40%
+    );
 }
 
 * {
@@ -42,76 +63,261 @@ body {
 }
 
 ::selection {
-  background: rgba(20, 83, 45, 0.16);
+  background: rgba(0, 220, 130, 0.22);
+  color: #ffffff;
 }
 
 .app-shell {
   position: relative;
 }
 
+/* subtle dot grid backdrop — Vercel style */
 .app-shell::before {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background-image:
-    linear-gradient(rgba(31, 26, 23, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(31, 26, 23, 0.025) 1px, transparent 1px);
-  background-size: 28px 28px;
-  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.28), transparent 85%);
+  background-image: radial-gradient(
+    rgba(255, 255, 255, 0.04) 1px,
+    transparent 1px
+  );
+  background-size: 24px 24px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.55), transparent 75%);
 }
 
 .glass-card {
   background: var(--surface);
   border: 1px solid var(--border);
   box-shadow:
-    0 18px 60px rgba(48, 39, 32, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(16px);
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 20px 60px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(6px);
+}
+
+.glass-card:hover {
+  border-color: var(--border-strong);
+}
+
+.metric-card {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
 }
 
 .eyebrow {
-  color: var(--muted);
+  color: var(--foreground-muted);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   font-size: 0.7rem;
   font-weight: 600;
 }
 
-.metric-card {
-  background: var(--surface-strong);
-  border: 1px solid var(--border);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+/* Tailwind이 Vercel 팔레트를 모르니, stone-*계열을 현재 디자인에 맞게 오버라이드.
+   기존 페이지들이 text-stone-600/700/900, bg-stone-100 같은 클래스를 쓰고 있어서
+   이 매핑만 덮으면 전체 페이지가 자연스럽게 다크 톤으로 전환된다. */
+.text-stone-950,
+.text-stone-900 {
+  color: var(--foreground) !important;
+}
+.text-stone-800,
+.text-stone-700 {
+  color: #d4d4d4 !important;
+}
+.text-stone-600 {
+  color: var(--foreground-muted) !important;
+}
+.text-stone-500 {
+  color: var(--foreground-subtle) !important;
+}
+.bg-stone-100 {
+  background-color: var(--surface-hover) !important;
+}
+.bg-stone-200 {
+  background-color: #1f1f1f !important;
+}
+.ring-stone-200\/60,
+.ring-stone-300\/80 {
+  --tw-ring-color: var(--border) !important;
+}
+.divide-stone-200\/60 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--border) !important;
+}
+.border-stone-300\/80,
+.border-stone-300 {
+  border-color: var(--border-strong) !important;
+}
+.bg-stone-900\/5,
+.bg-stone-900\/3,
+.bg-stone-900\/\[0\.03\] {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+.ring-stone-900\/5 {
+  --tw-ring-color: var(--border) !important;
+}
+
+/* 상태 배지 컬러도 다크톤에 맞게 부드럽게 */
+.bg-emerald-50 {
+  background-color: var(--accent-soft) !important;
+}
+.text-emerald-700 {
+  color: var(--accent) !important;
+}
+.ring-emerald-200 {
+  --tw-ring-color: rgba(0, 220, 130, 0.28) !important;
+}
+.bg-amber-50 {
+  background-color: var(--warning-soft) !important;
+}
+.text-amber-700 {
+  color: var(--warning) !important;
+}
+.ring-amber-200 {
+  --tw-ring-color: rgba(245, 166, 35, 0.28) !important;
+}
+.bg-rose-50 {
+  background-color: var(--danger-soft) !important;
+}
+.text-rose-700 {
+  color: var(--danger) !important;
+}
+.ring-rose-200 {
+  --tw-ring-color: rgba(255, 77, 79, 0.28) !important;
+}
+.bg-amber-50\/70 {
+  background-color: var(--warning-soft) !important;
+}
+.border-amber-700\/15 {
+  border-color: rgba(245, 166, 35, 0.22) !important;
+}
+.text-amber-800 {
+  color: var(--warning) !important;
+}
+.bg-rose-50\/70 {
+  background-color: var(--danger-soft) !important;
+}
+.border-rose-700\/15 {
+  border-color: rgba(255, 77, 79, 0.22) !important;
+}
+.text-rose-800 {
+  color: var(--danger) !important;
+}
+
+/* 흰색 배경을 쓰던 라벨/칩은 surface-raised로.
+   부분 투명(`/70`, `/85` 등) 변형도 함께 매핑해 다크 톤에서 저대비가 생기지 않도록 한다. */
+.bg-white,
+.bg-white\/70,
+.bg-white\/75,
+.bg-white\/80,
+.bg-white\/85,
+.bg-white\/90,
+.bg-white\/95 {
+  background-color: var(--surface-raised) !important;
+  color: var(--foreground) !important;
+}
+.hover\:bg-white:hover,
+.hover\:bg-white\/85:hover,
+.hover\:bg-white\/90:hover {
+  background-color: var(--surface-hover) !important;
+}
+.hover\:border-stone-400:hover {
+  border-color: rgba(255, 255, 255, 0.24) !important;
+}
+
+/* 밝은 배경 라벨(stone-950, amber-100, rose-100 등)을 다크 친화적으로 치환 */
+.bg-stone-950 {
+  background-color: var(--surface-raised) !important;
+  color: var(--foreground) !important;
+}
+.text-stone-100,
+.text-stone-300,
+.text-stone-400 {
+  color: #d4d4d4 !important;
+}
+.bg-amber-100 {
+  background-color: var(--warning-soft) !important;
+}
+.text-amber-800 {
+  color: var(--warning) !important;
+}
+.bg-rose-100 {
+  background-color: var(--danger-soft) !important;
+}
+.text-rose-800 {
+  color: var(--danger) !important;
+}
+.bg-emerald-100 {
+  background-color: var(--accent-soft) !important;
+}
+.text-emerald-800,
+.text-emerald-900 {
+  color: var(--accent) !important;
+}
+.text-amber-900 {
+  color: var(--warning) !important;
+}
+.text-rose-900 {
+  color: var(--danger) !important;
+}
+.bg-emerald-900\/5 {
+  background-color: var(--accent-soft) !important;
+}
+.bg-amber-900\/5 {
+  background-color: var(--warning-soft) !important;
+}
+.bg-rose-900\/5 {
+  background-color: var(--danger-soft) !important;
+}
+.border-emerald-700\/10,
+.border-emerald-700\/15 {
+  border-color: rgba(0, 220, 130, 0.22) !important;
+}
+.border-amber-700\/10,
+.border-amber-700\/15 {
+  border-color: rgba(245, 166, 35, 0.22) !important;
+}
+.border-rose-700\/10,
+.border-rose-700\/15 {
+  border-color: rgba(255, 77, 79, 0.22) !important;
+}
+.bg-amber-50\/70 {
+  background-color: var(--warning-soft) !important;
+}
+.bg-rose-50\/70 {
+  background-color: var(--danger-soft) !important;
+}
+.bg-emerald-50\/90 {
+  background-color: var(--accent-soft) !important;
 }
 
 .status-pill {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.45rem 0.8rem;
+  padding: 0.4rem 0.75rem;
   border-radius: 999px;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
+  border: 1px solid var(--border);
 }
 
 .status-pill[data-state="fresh"] {
   color: var(--accent);
   background: var(--accent-soft);
-  border: 1px solid rgba(20, 83, 45, 0.16);
+  border-color: rgba(0, 220, 130, 0.24);
 }
 
 .status-pill[data-state="stale"] {
   color: var(--warning);
   background: var(--warning-soft);
-  border: 1px solid rgba(154, 103, 0, 0.18);
+  border-color: rgba(245, 166, 35, 0.24);
 }
 
 .status-pill[data-state="hard"] {
   color: var(--danger);
   background: var(--danger-soft);
-  border: 1px solid rgba(159, 18, 57, 0.18);
+  border-color: rgba(255, 77, 79, 0.24);
 }
 
 .dot {
@@ -122,67 +328,89 @@ body {
 }
 
 .dot[data-state="fresh"] {
-  background: #15803d;
+  background: var(--accent);
+  box-shadow: 0 0 10px rgba(0, 220, 130, 0.6);
 }
 
 .dot[data-state="stale"] {
-  background: #ca8a04;
+  background: var(--warning);
+  box-shadow: 0 0 8px rgba(245, 166, 35, 0.5);
 }
 
 .dot[data-state="hard"] {
-  background: #be123c;
+  background: var(--danger);
+  box-shadow: 0 0 8px rgba(255, 77, 79, 0.5);
+}
+
+/* 기본부터 뚜렷하게 "눌러보고 싶은" 연속 부유 애니메이션.
+   그림자도 함께 흔들려 floating 느낌을 강조.
+   prefers-reduced-motion 환경에선 자동 해제. */
+@keyframes control-button-float {
+  0%,
+  100% {
+    transform: translateY(-1px);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.05) inset,
+      0 10px 22px rgba(0, 0, 0, 0.45);
+  }
+  50% {
+    transform: translateY(-7px);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.06) inset,
+      0 22px 34px rgba(0, 0, 0, 0.55);
+  }
 }
 
 .control-button {
   width: 100%;
-  border-radius: 1.25rem;
-  border: 1px solid rgba(55, 45, 36, 0.2);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.99) 0%, rgba(244, 237, 227, 0.98) 100%);
-  box-shadow:
-    0 16px 30px rgba(63, 49, 39, 0.09),
-    0 4px 0 rgba(132, 114, 97, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-raised);
+  color: var(--foreground);
+  animation: control-button-float 2.8s ease-in-out infinite;
   transition:
-    transform 140ms ease,
-    box-shadow 140ms ease,
-    border-color 140ms ease,
-    background-color 140ms ease;
+    border-color 180ms ease,
+    background-color 180ms ease;
 }
 
 .control-button:hover {
-  transform: translateY(-2px);
-  box-shadow:
-    0 22px 40px rgba(63, 49, 39, 0.12),
-    0 5px 0 rgba(132, 114, 97, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  background: var(--surface-hover);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .control-button:active {
+  animation: none;
   transform: translateY(2px);
+  background: var(--surface);
   box-shadow:
-    0 8px 16px rgba(63, 49, 39, 0.08),
-    0 2px 0 rgba(132, 114, 97, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.88);
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 4px 10px rgba(0, 0, 0, 0.4);
+  transition: none;
 }
 
 .control-button:disabled {
+  opacity: 0.55;
+  animation: none;
   transform: none;
-  box-shadow:
-    0 8px 16px rgba(63, 49, 39, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.82);
 }
 
 .control-button[data-tone="soft"]:hover {
-  border-color: rgba(217, 119, 6, 0.35);
-  background:
-    linear-gradient(180deg, rgba(255, 251, 235, 0.98) 0%, rgba(254, 243, 199, 0.92) 100%);
+  border-color: rgba(245, 166, 35, 0.6);
+  background: var(--warning-soft);
 }
 
 .control-button[data-tone="hard"]:hover {
-  border-color: rgba(225, 29, 72, 0.28);
-  background:
-    linear-gradient(180deg, rgba(255, 241, 242, 0.98) 0%, rgba(255, 228, 230, 0.92) 100%);
+  border-color: rgba(255, 77, 79, 0.6);
+  background: var(--danger-soft);
+}
+
+/* 경직 시 연속 애니메이션 비활성 */
+@media (prefers-reduced-motion: reduce) {
+  .control-button,
+  .control-button:hover {
+    animation: none;
+    transform: none;
+  }
 }
 
 .control-button-copy {
@@ -192,4 +420,53 @@ body {
 
 .equal-card {
   height: 100%;
+}
+
+/* 모노스페이스 수치 강조용 */
+.metric-number {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* CacheControls 맨 아래 상태 요약 박스.
+   배경이 본 카드(#0a0a0a)와 너무 비슷해 구분이 약하던 문제를 state 기반
+   accent 테두리·배경 그라디언트로 해결. */
+.status-brief {
+  border: 1px solid var(--border-strong);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+}
+
+.status-brief[data-state="fresh"] {
+  border-color: rgba(0, 220, 130, 0.32);
+  background: linear-gradient(
+    180deg,
+    rgba(0, 220, 130, 0.1) 0%,
+    rgba(0, 220, 130, 0.03) 100%
+  );
+  box-shadow: 0 0 30px -12px rgba(0, 220, 130, 0.35);
+}
+
+.status-brief[data-state="stale"] {
+  border-color: rgba(245, 166, 35, 0.38);
+  background: linear-gradient(
+    180deg,
+    rgba(245, 166, 35, 0.1) 0%,
+    rgba(245, 166, 35, 0.03) 100%
+  );
+  box-shadow: 0 0 30px -12px rgba(245, 166, 35, 0.38);
+}
+
+.status-brief[data-state="hard"] {
+  border-color: rgba(255, 77, 79, 0.4);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 77, 79, 0.1) 0%,
+    rgba(255, 77, 79, 0.03) 100%
+  );
+  box-shadow: 0 0 30px -12px rgba(255, 77, 79, 0.4);
 }

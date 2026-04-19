@@ -47,6 +47,21 @@ export default function ExperimentsIndexPage() {
   return (
     <main className="app-shell min-h-screen px-4 py-6 sm:px-6 sm:py-7 lg:px-8">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-5">
+        <nav className="flex flex-wrap items-center gap-2 text-xs font-medium">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 rounded-full border border-stone-300/80 bg-white/85 px-3 py-1.5 text-stone-950 transition-colors hover:border-stone-300 hover:bg-stone-100"
+          >
+            ← Home
+          </Link>
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-1.5 rounded-full border border-stone-300/80 bg-white/85 px-3 py-1.5 text-stone-950 transition-colors hover:border-stone-300 hover:bg-stone-100"
+          >
+            Dashboard →
+          </Link>
+        </nav>
+
         <section className="glass-card rounded-[2rem] px-6 py-6 sm:px-7">
           <p className="eyebrow">Experiments</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-stone-950 sm:text-[3rem]">

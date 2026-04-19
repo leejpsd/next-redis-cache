@@ -1,10 +1,9 @@
 // app/page.tsx
+import Link from "next/link";
 import { Suspense } from "react";
 import { CacheControls } from "./components/CacheControls";
 import InstanceCachedUserProfile from "./components/InstanceCachedUserProfile";
 import LiveUserProfile from "./components/LiveUserProfile";
-import { MetricsPanel } from "./components/MetricsPanel";
-import { PrefetchLab } from "./components/PrefetchLab";
 import UserProfile from "./components/UserProfile";
 import { getRandomUser } from "./lib/getRandomUser";
 
@@ -17,7 +16,7 @@ export default async function Home() {
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] lg:items-stretch">
             <div className="space-y-4">
               <div className="space-y-2">
-                <p className="eyebrow">Next.js 16 Self Hosting Study</p>
+                <p className="eyebrow">Next.js 16 · Self Hosting Study</p>
                 <h1 className="text-3xl font-semibold tracking-[-0.05em] text-stone-950 sm:text-[3rem] sm:leading-[1.02]">
                   멀티 인스턴스 Redis 캐시 실험
                 </h1>
@@ -31,7 +30,7 @@ export default async function Home() {
                 결과입니다.
               </p>
 
-              <div className="flex flex-wrap gap-2 text-[0.72rem] font-medium text-stone-700">
+              <div className="flex flex-wrap gap-2 text-[0.72rem] font-medium">
                 <span className="rounded-full border border-stone-300/80 bg-white/80 px-3 py-1.5">
                   3 cards
                 </span>
@@ -41,6 +40,18 @@ export default async function Home() {
                 <span className="rounded-full border border-stone-300/80 bg-white/80 px-3 py-1.5">
                   soft / hard
                 </span>
+                <a
+                  href="/dashboard"
+                  className="rounded-full border border-stone-300/80 bg-white/80 px-3 py-1.5 transition-colors hover:border-stone-300 hover:bg-stone-100"
+                >
+                  → 실측 결과 보기
+                </a>
+                <a
+                  href="/experiments"
+                  className="rounded-full border border-stone-300/80 bg-white/80 px-3 py-1.5 transition-colors hover:border-stone-300 hover:bg-stone-100"
+                >
+                  → 렌더링 전략 실험
+                </a>
               </div>
             </div>
 
@@ -99,9 +110,34 @@ export default async function Home() {
           </Suspense>
         </section>
 
-        <section className="grid gap-5 xl:grid-cols-2 xl:items-stretch">
-          <MetricsPanel />
-          <PrefetchLab />
+        <section className="glass-card rounded-[2rem] px-6 py-6 sm:px-7">
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-2">
+              <p className="eyebrow">Next Step</p>
+              <h2 className="text-2xl font-semibold tracking-[-0.04em] text-stone-950">
+                수치·전략·운영 사고까지 한눈에
+              </h2>
+              <p className="max-w-2xl text-sm leading-6 text-stone-600">
+                이 데모가 보여주는 before/after 그 다음을 보고 싶다면,
+                실측 결과 대시보드와 렌더링 전략별 실험 라우트로 바로 이동할 수
+                있습니다.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center gap-2 rounded-full border border-stone-300/80 bg-white/85 px-4 py-2.5 text-sm font-semibold text-stone-950 transition-colors hover:border-stone-300 hover:bg-stone-100"
+              >
+                실측 결과 대시보드 →
+              </Link>
+              <Link
+                href="/experiments"
+                className="inline-flex items-center gap-2 rounded-full border border-stone-300/80 bg-white/85 px-4 py-2.5 text-sm font-semibold text-stone-950 transition-colors hover:border-stone-300 hover:bg-stone-100"
+              >
+                렌더링 전략 실험 →
+              </Link>
+            </div>
+          </div>
         </section>
       </div>
     </main>
