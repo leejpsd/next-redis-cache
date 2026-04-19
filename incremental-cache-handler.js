@@ -15,6 +15,10 @@ const ENTRY_KEY_PREFIX = "next-incremental:entry:";
 const TAG_META_PREFIX = "next-incremental:tag:";
 const INSTANCE_LOCAL_TAG_PREFIX = "instance-local:";
 
+// 배포 버전을 캐시 키에 포함시켜 배포 간 stale HTML이 서빙되는 문제를 차단한다.
+// DEPLOYMENT_VERSION은 Dockerfile에서 git SHA로 주입되며, 미지정 시 "unversioned".
+const BUILD_NAMESPACE = process.env.DEPLOYMENT_VERSION || process.env.GIT_HASH || "unversioned";
+
 const useMemoryFallback = process.env.CACHE_HANDLER_FALLBACK === "memory";
 let redisClient = null;
 let connectPromise = null;
@@ -22,10 +26,12 @@ const memoryEntries = new Map();
 const memoryTagStates = new Map();
 
 function entryKey(key) {
-  return `${ENTRY_KEY_PREFIX}${key}`;
+  return `${ENTRY_KEY_PREFIX}${BUILD_NAMESPACE}:${key}`;
 }
 
 function tagMetaKey(tag) {
+  // 태그 상태는 배포 간에도 공유되도록 네임스페이스를 붙이지 않는다.
+  // (revalidateTag가 이전 배포의 stale 플래그도 덮어쓸 수 있어야 한다.)
   return `${TAG_META_PREFIX}${tag}`;
 }
 
