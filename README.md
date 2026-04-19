@@ -109,6 +109,26 @@ staging ALB + ECS Fargate 2 task + ElastiCache `cache.t4g.micro` 구성에서 k6
 | 에러율 | 0.00% |
 | Redis keys (시작/종료) | 1 / 1 (누수 없음) |
 
+### 사용자 체감 성능 (Lighthouse 모바일 4G, 로컬 prod build)
+
+| 전략 | LCP avg | Score |
+| --- | --- | --- |
+| ISR | **1746ms** | 100 |
+| Hybrid (Streaming SSR + 섹션별 Cache Components) | **1743ms** | 100 |
+| SSR / shared-cache | 1900~1904ms | ~100 |
+| BFF | 1987ms | 99 |
+| **CSR** | **3200ms (+1454ms, +83%)** | **93** |
+
+Slow 3G에서는 CSR만 **8.4초**, 나머지는 5.7~6.3초.
+
+### SEO (초기 HTML 본문 길이)
+
+| 전략 | HTML 본문 |
+| --- | --- |
+| SSR / ISR / shared-cache | 3,200+ chars (풀 본문) |
+| Hybrid | 751 chars (shell + fallback, 이후 스트리밍) |
+| CSR / BFF | **143~165 chars (로딩 메시지만)** |
+
 ### 비용 (월 예상, ap-southeast-2)
 
 | 항목 | 월 비용 |
