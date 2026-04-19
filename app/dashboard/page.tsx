@@ -84,6 +84,79 @@ const COST_ROWS = [
 
 const COST_TOTAL = COST_ROWS.reduce((acc, r) => acc + r.cost, 0);
 
+const SOAK_ROWS = [
+  { label: "총 요청 수", value: "18,164" },
+  { label: "처리량", value: "약 10 req/s" },
+  { label: "avg 응답", value: "190ms" },
+  { label: "p95 응답", value: "217ms" },
+  { label: "에러율", value: "0.00% (실패 1건)" },
+  { label: "Redis 키 (시작 → 종료)", value: "1 → 1 (누수 없음)" },
+] as const;
+
+const ORIGIN_FETCH_ROWS = [
+  {
+    strategy: "SSR (no-store)",
+    fetchPerMonth: "1,000,000회",
+    estimatedCost: "$100.00",
+    tone: "warn" as const,
+  },
+  {
+    strategy: "ISR / Cache Components (TTL 60s)",
+    fetchPerMonth: "43,200회",
+    estimatedCost: "$4.32",
+    tone: "good" as const,
+  },
+  {
+    strategy: "Hybrid (섹션별 TTL 혼합)",
+    fetchPerMonth: "30,000~60,000회",
+    estimatedCost: "$3.00~6.00",
+    tone: "good" as const,
+  },
+  {
+    strategy: "CSR (브라우저 직접 호출)",
+    fetchPerMonth: "사용자 수 × 세션 수",
+    estimatedCost: "—",
+    tone: "warn" as const,
+  },
+];
+
+const LIGHTHOUSE_4G = [
+  { strategy: "ISR", lcp: 1746, score: 100, tone: "good" as const },
+  { strategy: "Hybrid", lcp: 1743, score: 100, tone: "good" as const },
+  { strategy: "shared-cache", lcp: 1904, score: 100, tone: "good" as const },
+  { strategy: "SSR", lcp: 1900, score: 100, tone: "good" as const },
+  { strategy: "BFF", lcp: 1987, score: 99, tone: "mid" as const },
+  { strategy: "CSR", lcp: 3200, score: 93, tone: "warn" as const },
+];
+
+const LIGHTHOUSE_3G = [
+  { strategy: "ISR / Hybrid", lcp: 5693, tone: "good" as const },
+  { strategy: "SSR / shared-cache", lcp: 6093, tone: "mid" as const },
+  { strategy: "BFF", lcp: 6275, tone: "mid" as const },
+  { strategy: "CSR", lcp: 8398, tone: "warn" as const },
+];
+
+const INCIDENTS = [
+  {
+    title: "배포 경계 캐시 누수",
+    symptom:
+      "새 배포 후에도 CSR/BFF/SSR/shared-cache가 이전 빌드의 HTML(Turbopack 청크 참조)을 계속 서빙. 청크 404 유발.",
+    diagnosis:
+      "응답 헤더 x-nextjs-cache: HIT, Cache-Control: s-maxage=31536000. Redis 엔트리 키에 buildId 네임스페이스가 없어 배포 간 엔트리가 공유됨.",
+    fix: "incremental-cache-handler.js의 entryKey에 BUILD_NAMESPACE(git SHA) prefix 추가. 태그 키는 공유 유지.",
+    status: "Resolved (2026-04-20)",
+  },
+  {
+    title: "Health endpoint 오판",
+    symptom:
+      "Redis 정상인데도 /api/health가 503, redis.latencyMs=-1 반환.",
+    diagnosis:
+      "await import('@/redis-handler') 동적 경로 해석이 production에서 간헐적 실패. catch 블록이 -1 하드코딩 반환.",
+    fix: "lib/redis-client.ts에 pingRedis() static export, 1.5s 타임아웃, reason 분류 반환. /api/health가 이걸 사용.",
+    status: "Resolved (2026-04-20)",
+  },
+] as const;
+
 const MATRIX = [
   {
     strategy: "SSR (no-store)",
@@ -293,6 +366,144 @@ export default function DashboardPage() {
           </p>
         </section>
 
+        <section className="grid gap-5 md:grid-cols-2">
+          <div className="glass-card rounded-[2rem] px-6 py-6 sm:px-7">
+            <p className="eyebrow">Lighthouse · 모바일 4G</p>
+            <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-stone-950">
+              사용자 체감 LCP
+            </h2>
+            <p className="mt-2 text-xs text-stone-500">
+              5 runs × Moto G4 에뮬레이션, 로컬 production build
+            </p>
+            <table className="mt-5 w-full text-sm">
+              <tbody className="divide-y divide-stone-200/60">
+                {LIGHTHOUSE_4G.map((row) => (
+                  <tr key={row.strategy}>
+                    <td className="py-2 pr-3 font-medium text-stone-900">
+                      {row.strategy}
+                    </td>
+                    <td className="py-2 text-right">
+                      <span
+                        className={`inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${toneClass(
+                          row.tone
+                        )}`}
+                      >
+                        {row.lcp.toLocaleString()}ms
+                      </span>
+                    </td>
+                    <td className="py-2 pl-3 text-right font-mono text-xs text-stone-600">
+                      score {row.score}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="mt-3 text-xs leading-5 text-stone-500">
+              CSR은 LCP 3,200ms로 ISR 대비 +83%. 로딩 메시지가 LCP 후보로 잡히는
+              Lighthouse 특성상 실제 체감은 이보다 더 느릴 수 있습니다.
+            </p>
+          </div>
+
+          <div className="glass-card rounded-[2rem] px-6 py-6 sm:px-7">
+            <p className="eyebrow">Lighthouse · Slow 3G</p>
+            <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-stone-950">
+              저속 네트워크에서의 격차 확대
+            </h2>
+            <p className="mt-2 text-xs text-stone-500">
+              400kbps · RTT 400ms · CPU 4x 스로틀링
+            </p>
+            <table className="mt-5 w-full text-sm">
+              <tbody className="divide-y divide-stone-200/60">
+                {LIGHTHOUSE_3G.map((row) => (
+                  <tr key={row.strategy}>
+                    <td className="py-2 pr-3 font-medium text-stone-900">
+                      {row.strategy}
+                    </td>
+                    <td className="py-2 text-right">
+                      <span
+                        className={`inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${toneClass(
+                          row.tone
+                        )}`}
+                      >
+                        {row.lcp.toLocaleString()}ms
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="mt-3 text-xs leading-5 text-stone-500">
+              4G에서 +1.45초였던 CSR 격차가 3G에선 +2.7초로 벌어집니다. 저사양
+              폰·지하철·해외 사용자 비중이 클수록 CSR이 더 비쌉니다.
+            </p>
+          </div>
+        </section>
+
+        <section className="grid gap-5 md:grid-cols-2">
+          <div className="glass-card rounded-[2rem] px-6 py-6 sm:px-7">
+            <p className="eyebrow">Soak · 30분 장시간 테스트</p>
+            <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-stone-950">
+              Cache Components + Redis 안정성
+            </h2>
+            <p className="mt-2 text-xs text-stone-500">
+              /experiments/shared-cache · 10 VU constant · 30 min
+            </p>
+            <table className="mt-5 w-full text-sm">
+              <tbody className="divide-y divide-stone-200/60">
+                {SOAK_ROWS.map((row) => (
+                  <tr key={row.label}>
+                    <td className="py-2 pr-3 text-stone-700">{row.label}</td>
+                    <td className="py-2 text-right font-mono text-stone-900">
+                      {row.value}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="mt-3 text-xs leading-5 text-stone-500">
+              태그 인덱스 누수 없음, 메모리·네트워크 정상. `cacheLife` 만료
+              주기마다 같은 키를 재사용한다는 증거.
+            </p>
+          </div>
+
+          <div className="glass-card rounded-[2rem] px-6 py-6 sm:px-7">
+            <p className="eyebrow">Origin API 호출량</p>
+            <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-stone-950">
+              공유 캐시가 실제로 아끼는 것
+            </h2>
+            <p className="mt-2 text-xs text-stone-500">
+              월 100만 요청 · TTL 60s · 호출당 $0.0001 가정
+            </p>
+            <table className="mt-5 w-full text-sm">
+              <tbody className="divide-y divide-stone-200/60">
+                {ORIGIN_FETCH_ROWS.map((row) => (
+                  <tr key={row.strategy}>
+                    <td className="py-2 pr-3 font-medium text-stone-900">
+                      {row.strategy}
+                    </td>
+                    <td className="py-2 text-right text-stone-700">
+                      {row.fetchPerMonth}
+                    </td>
+                    <td className="py-2 pl-3 text-right">
+                      <span
+                        className={`inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${toneClass(
+                          row.tone
+                        )}`}
+                      >
+                        {row.estimatedCost}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="mt-3 text-xs leading-5 text-stone-500">
+              SSR만 쓰면 origin 호출 비용이 기본 인프라 비용($98)을 넘어섭니다.
+              내부 백엔드여도 CPU/DB 비용으로 같은 구조.
+            </p>
+          </div>
+        </section>
+
         <section className="glass-card overflow-x-auto rounded-[2rem] px-6 py-6 sm:px-7">
           <p className="eyebrow">Trade-off Matrix</p>
           <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-stone-950">
@@ -406,6 +617,55 @@ export default function DashboardPage() {
               </li>
             </ul>
           </div>
+        </section>
+
+        <section className="glass-card rounded-[2rem] px-6 py-6 sm:px-7">
+          <p className="eyebrow">Operations Incidents</p>
+          <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-stone-950">
+            측정 중 실제로 겪은 사고 2건
+          </h2>
+          <p className="mt-2 text-xs text-stone-500">
+            4편을 마감하는 도중 staging에서 드러난 실제 운영 버그. 원인 규명부터
+            수정·배포 검증까지 전 과정을 기록했습니다.
+          </p>
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            {INCIDENTS.map((inc) => (
+              <article
+                key={inc.title}
+                className="rounded-2xl bg-stone-900/3 px-5 py-4 ring-1 ring-stone-900/5"
+              >
+                <div className="flex items-baseline justify-between gap-3">
+                  <h3 className="text-base font-semibold text-stone-950">
+                    {inc.title}
+                  </h3>
+                  <span className="inline-block rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
+                    {inc.status}
+                  </span>
+                </div>
+                <dl className="mt-3 space-y-2 text-xs leading-5 text-stone-600">
+                  <div>
+                    <dt className="font-semibold text-stone-800">증상</dt>
+                    <dd className="mt-0.5">{inc.symptom}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-semibold text-stone-800">원인</dt>
+                    <dd className="mt-0.5">{inc.diagnosis}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-semibold text-stone-800">수정</dt>
+                    <dd className="mt-0.5">{inc.fix}</dd>
+                  </div>
+                </dl>
+              </article>
+            ))}
+          </div>
+          <p className="mt-4 text-xs leading-5 text-stone-500">
+            두 사고 모두{" "}
+            <code className="rounded bg-stone-900/5 px-1.5 py-0.5 text-xs">
+              docs/incident/
+            </code>{" "}
+            에 원인·수정·재발방지까지 Resolution 상태로 문서화되어 있습니다.
+          </p>
         </section>
 
         <section className="glass-card rounded-[2rem] px-6 py-6 sm:px-7">
