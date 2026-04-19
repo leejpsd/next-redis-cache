@@ -25,8 +25,17 @@ ENV GIT_HASH=$DEPLOYMENT_VERSION
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # 이전 로컬 빌드 아티팩트가 혹시 포함되더라도 제거하여 clean build 보장
-RUN rm -rf .next
-RUN npm run build
+RUN rm -rf .next node_modules/.cache
+# Next 16은 기본이 Turbopack이라 --webpack 플래그를 명시적으로 사용한다.
+# Docker 빌드가 실제로 webpack을 쓰는지 로그로 남겨 이후 트러블슈팅이 용이하게 한다.
+RUN npx next build --webpack 2>&1 | tee /tmp/next-build.log \
+  && grep -E "Next\.js.*\((webpack|Turbopack)\)" /tmp/next-build.log | head -3 \
+  && if find .next/static/chunks -name "*.wizo.js" -o -name "turbopack-*.js" 2>/dev/null | grep -q .; then \
+       echo "!!! Turbopack chunk signatures found despite --webpack flag"; \
+       find .next/static/chunks -name "*.wizo.js" -o -name "turbopack-*.js" | head -5; \
+       exit 1; \
+     fi \
+  && rm -f /tmp/next-build.log
 
 FROM node:22-alpine AS runner
 WORKDIR /app
