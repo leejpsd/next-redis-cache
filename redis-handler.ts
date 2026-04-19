@@ -121,7 +121,12 @@ function getMemoryTagSet(tag: string): Set<string> {
   return created;
 }
 
-// ─── Health Check Helper (used by /api/health) ────────────────────────────────
+// ─── Health Check Helper (legacy) ─────────────────────────────────────────────
+//
+// /api/health는 더 이상 이 함수를 쓰지 않는다. `lib/redis-client#pingRedis`로 이동했다.
+// 이유: production에서 `await import("@/redis-handler")` 동적 경로 해석이 간헐적으로
+// 실패해 health가 degraded로 오판하는 사고가 있었다. static import + 단일 Redis
+// 클라이언트로 통일했다. 이 함수는 redis-handler.cjs 공개 API 호환을 위해 남겨둔다.
 
 export async function checkRedisPing(): Promise<{
   ok: boolean;

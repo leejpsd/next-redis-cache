@@ -1,17 +1,11 @@
 import { NextResponse } from "next/server";
+import { pingRedis } from "@/lib/redis-client";
 import { getMetricSnapshot } from "@/lib/metrics";
 import { getRuntimeIdentity } from "@/lib/runtime-context";
 
 export async function GET(): Promise<NextResponse> {
   const now = Date.now();
-  const redis = await (async () => {
-    try {
-      const { checkRedisPing } = await import("@/redis-handler");
-      return await checkRedisPing();
-    } catch {
-      return { ok: false, latencyMs: -1 };
-    }
-  })();
+  const redis = await pingRedis();
   const ok = redis.ok;
   const metrics = getMetricSnapshot();
   const runtime = getRuntimeIdentity();
@@ -24,6 +18,7 @@ export async function GET(): Promise<NextResponse> {
       redis: {
         ok: redis.ok,
         latencyMs: redis.latencyMs,
+        reason: redis.reason ?? null,
       },
     },
     metrics: {
