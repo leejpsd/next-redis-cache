@@ -34,6 +34,13 @@ const experimentLinks = [
     description:
       "`use cache` + Redis shared cache로 멀티 인스턴스 정합성을 확보한 after 경로입니다.",
   },
+  {
+    href: "/experiments/hybrid",
+    eyebrow: "Streaming + Sections",
+    title: "Hybrid",
+    description:
+      "Shell은 즉시 SSR로 내려가고, 섹션별로 다른 `cacheLife`를 가진 Cache Components를 Suspense로 병렬 스트리밍합니다.",
+  },
 ];
 
 export default function ExperimentsIndexPage() {

@@ -24,6 +24,8 @@ ENV DEPLOYMENT_VERSION=$DEPLOYMENT_VERSION
 ENV GIT_HASH=$DEPLOYMENT_VERSION
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# 이전 로컬 빌드 아티팩트가 혹시 포함되더라도 제거하여 clean build 보장
+RUN rm -rf .next
 RUN npm run build
 
 FROM node:22-alpine AS runner
