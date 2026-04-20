@@ -70,16 +70,20 @@ export function OriginFetchChart() {
           </h2>
         </div>
         <span className="rounded-full border border-stone-300/80 px-2.5 py-1 text-[11px] font-medium text-stone-500">
-          TTL 60s · $0.0001/call 가정
+          CSR 실측 기반 · TTL 60s · $0.0001/call 가정
         </span>
       </div>
 
       <p className="mt-2 text-xs text-stone-500">
-        공유 캐시가 실제로 아끼는 것은{" "}
+        <span className="rounded bg-emerald-900/5 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800">
+          실측
+        </span>{" "}
+        CSR 세션당 origin 호출 수는 Playwright로 실측한 1.0회(분산 0)를 그대로
+        곱했습니다. 나머지는 TTL · 서버 1대 기준. 공유 캐시가 실제로 아끼는 건{" "}
         <span className="metric-number text-stone-900">
-          origin API 호출 비용 × 백엔드 부하
+          origin API 호출량 × 백엔드 부하
         </span>
-        . SSR과 CSR은 구조적으로 TTL 기반 절감이 불가능합니다.
+        로 나타납니다.
       </p>
 
       {/* 로그 스케일 눈금 */}
