@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArchitectureDiagram } from "./components/ArchitectureDiagram";
 import { BrowserTimingTable } from "./components/BrowserTimingTable";
 import { ClimaxBanner } from "./components/ClimaxBanner";
 import { CsrOriginLiveCard } from "./components/CsrOriginLiveCard";
@@ -13,6 +14,7 @@ import { SeoTable } from "./components/SeoTable";
 import { ServerTimingTable } from "./components/ServerTimingTable";
 import { SourceLink } from "./components/SourceLink";
 import { SpikeRedisProof } from "./components/SpikeRedisProof";
+import { StickyToc } from "./components/StickyToc";
 import { StoryTransition } from "./components/StoryTransition";
 import { Verdict } from "./components/Verdict";
 
@@ -108,7 +110,9 @@ function toneClass(tone: "good" | "mid" | "warn") {
 export default function DashboardPage() {
   return (
     <main className="app-shell min-h-screen px-4 py-6 sm:px-6 sm:py-7 lg:px-8">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+      <div className="mx-auto flex w-full max-w-[80rem] gap-8">
+        <StickyToc />
+        <div className="flex min-w-0 flex-1 flex-col gap-6">
         {/* ──────────────────────────────────────
            NAV
            ────────────────────────────────────── */}
@@ -134,7 +138,10 @@ export default function DashboardPage() {
         {/* ──────────────────────────────────────
            HERO — 결론 먼저
            ────────────────────────────────────── */}
-        <section className="glass-card rounded-[2rem] px-6 py-7 sm:px-8">
+        <section
+          id="toc-hero"
+          className="glass-card rounded-[2rem] px-6 py-7 sm:px-8 scroll-mt-20"
+        >
           <p className="eyebrow">Dashboard · 렌더링 전략 실측</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-stone-950 sm:text-[2.6rem] sm:leading-[1.1]">
             &ldquo;CSR이 서버비 아끼고 사용자한테 넘기면 되지 않나&rdquo;
@@ -169,13 +176,22 @@ export default function DashboardPage() {
         </section>
 
         {/* ──────────────────────────────────────
+           ARCHITECTURE
+           ────────────────────────────────────── */}
+        <div id="toc-arch" className="scroll-mt-20">
+          <ArchitectureDiagram />
+        </div>
+
+        {/* ──────────────────────────────────────
            ACT 1: 얼핏 본 답 — 서버 시간만 보면 CSR 승
            ────────────────────────────────────── */}
-        <StoryTransition tone="question">
-          <span className="font-semibold text-stone-950">Act 1. </span>
-          먼저 서버 시간만 비교해보자. 이 축에서만 보면 &ldquo;서버가 렌더하지
-          않는 CSR이 가장 가볍다&rdquo;는 결론이 자연스럽게 나온다.
-        </StoryTransition>
+        <div id="toc-act1" className="scroll-mt-20">
+          <StoryTransition tone="question">
+            <span className="font-semibold text-stone-950">Act 1. </span>
+            먼저 서버 시간만 비교해보자. 이 축에서만 보면 &ldquo;서버가 렌더하지
+            않는 CSR이 가장 가볍다&rdquo;는 결론이 자연스럽게 나온다.
+          </StoryTransition>
+        </div>
 
         <ServerTimingTable />
 
@@ -212,13 +228,15 @@ export default function DashboardPage() {
         {/* ──────────────────────────────────────
            ACT 2-1: 숨은 비용 1 — 사용자 체감
            ────────────────────────────────────── */}
-        <StoryTransition tone="twist">
-          <span className="font-semibold text-stone-950">
-            Act 2. 그런데 사용자는 &ldquo;서버 시간&rdquo;을 느끼지 않는다.
-          </span>{" "}
-          사용자가 느끼는 건 &ldquo;가장 큰 콘텐츠가 언제 뜨는가&rdquo;(LCP)다.
-          같은 CSR을 브라우저 관점에서 다시 재보자.
-        </StoryTransition>
+        <div id="toc-act2-lcp" className="scroll-mt-20">
+          <StoryTransition tone="twist">
+            <span className="font-semibold text-stone-950">
+              Act 2. 그런데 사용자는 &ldquo;서버 시간&rdquo;을 느끼지 않는다.
+            </span>{" "}
+            사용자가 느끼는 건 &ldquo;가장 큰 콘텐츠가 언제 뜨는가&rdquo;(LCP)다.
+            같은 CSR을 브라우저 관점에서 다시 재보자.
+          </StoryTransition>
+        </div>
 
         <LcpBarChart />
 
@@ -251,12 +269,14 @@ export default function DashboardPage() {
         {/* ──────────────────────────────────────
            ACT 2-2: 숨은 비용 2 — SEO
            ────────────────────────────────────── */}
-        <StoryTransition tone="twist">
-          <span className="font-semibold text-stone-950">
-            Act 2. 그리고 크롤러 · JS 실패 환경에서는 CSR이 &ldquo;보이지 않는
-            페이지&rdquo;가 된다.
-          </span>
-        </StoryTransition>
+        <div id="toc-act2-seo" className="scroll-mt-20">
+          <StoryTransition tone="twist">
+            <span className="font-semibold text-stone-950">
+              Act 2. 그리고 크롤러 · JS 실패 환경에서는 CSR이 &ldquo;보이지 않는
+              페이지&rdquo;가 된다.
+            </span>
+          </StoryTransition>
+        </div>
 
         <SeoTable />
 
@@ -292,12 +312,21 @@ export default function DashboardPage() {
         {/* ──────────────────────────────────────
            ACT 2-3: 숨은 비용 3 — 원본 API 폭증
            ────────────────────────────────────── */}
-        <StoryTransition tone="twist">
-          <span className="font-semibold text-stone-950">
-            Act 2. 마지막으로, 프론트 서버 비용을 아낀 대가는 어디로 갈까.
-          </span>{" "}
-          CSR은 브라우저가 origin API를 직접 때린다. 이건 가정이 아니라 실측이다.
-        </StoryTransition>
+        <div id="toc-act2-origin" className="scroll-mt-20">
+          <StoryTransition tone="twist">
+            <span className="font-semibold text-stone-950">
+              Act 2. 먼저 CSR의 정당한 이점을 인정하고 가자.
+            </span>{" "}
+            CSR은 서버 CPU·렌더 비용을 완전히 없앤다. 내부 어드민·인증 뒤
+            실시간 위젯처럼 SEO가 필요 없고 &ldquo;서버를 거치지 않는 게 낫다&rdquo;는
+            자리에선 여전히 옳은 선택이다.{" "}
+            <span className="font-semibold text-stone-950">
+              문제는 그 대가가 어디로 가는가.
+            </span>{" "}
+            실측해보면 결론은 깔끔하다 — 서버비는 줄지만 origin API 비용이 그만큼
+            정확히 올라간다.
+          </StoryTransition>
+        </div>
 
         <CsrOriginLiveCard />
 
@@ -333,13 +362,15 @@ export default function DashboardPage() {
         {/* ──────────────────────────────────────
            ACT 3: 공유 캐시가 만든 차이
            ────────────────────────────────────── */}
-        <StoryTransition tone="evidence">
-          <span className="font-semibold text-stone-950">
-            Act 3. 축을 바꿔보자 — 공유 캐시는 뭘 바꿨는가?
-          </span>{" "}
-          지금까지는 &ldquo;CSR vs 서버 렌더&rdquo;였다. 이제는 &ldquo;공유 캐시 있을 때
-          vs 없을 때&rdquo;다. 이게 이 시리즈의 원래 주제이기도 하다.
-        </StoryTransition>
+        <div id="toc-act3" className="scroll-mt-20">
+          <StoryTransition tone="evidence">
+            <span className="font-semibold text-stone-950">
+              Act 3. 축을 바꿔보자 — 공유 캐시는 뭘 바꿨는가?
+            </span>{" "}
+            지금까지는 &ldquo;CSR vs 서버 렌더&rdquo;였다. 이제는 &ldquo;공유 캐시 있을 때
+            vs 없을 때&rdquo;다. 이게 이 시리즈의 원래 주제이기도 하다.
+          </StoryTransition>
+        </div>
 
         <SpikeRedisProof />
 
@@ -421,15 +452,19 @@ ROUNDS=5 POLL_INTERVAL_MS=100 \\
         {/* ──────────────────────────────────────
            ACT 4: 결론 — 화면별 최선의 선택
            ────────────────────────────────────── */}
-        <ClimaxBanner />
+        <div id="toc-climax" className="scroll-mt-20">
+          <ClimaxBanner />
+        </div>
 
-        <StoryTransition tone="conclusion">
-          <span className="font-semibold text-stone-950">
-            Act 4. 그래서 어떤 전략을 어디에 쓰는가.
-          </span>{" "}
-          실측 결과 기반 매칭표. 단, &ldquo;CSR이 무조건 오답&rdquo;은 아니다 —
-          공개 본문 밖의 자리(인증 뒤 · 실시간 위젯)에선 여전히 맞는 선택.
-        </StoryTransition>
+        <div id="toc-act4" className="scroll-mt-20">
+          <StoryTransition tone="conclusion">
+            <span className="font-semibold text-stone-950">
+              Act 4. 그래서 어떤 전략을 어디에 쓰는가.
+            </span>{" "}
+            실측 결과 기반 매칭표. 단, &ldquo;CSR이 무조건 오답&rdquo;은 아니다 —
+            공개 본문 밖의 자리(인증 뒤 · 실시간 위젯)에선 여전히 맞는 선택.
+          </StoryTransition>
+        </div>
 
         <section className="glass-card rounded-[2rem] px-6 py-6 sm:px-7">
           <p className="eyebrow">Recommendation · 화면별 최선의 선택</p>
@@ -462,13 +497,15 @@ ROUNDS=5 POLL_INTERVAL_MS=100 \\
         {/* ──────────────────────────────────────
            ACT 5: 운영하며 배운 것
            ────────────────────────────────────── */}
-        <StoryTransition tone="evidence">
-          <span className="font-semibold text-stone-950">
-            Act 5. 책상에서만 맞는 결론은 못 믿는다.
-          </span>{" "}
-          이 대시보드를 만드는 도중 staging에서 실제로 사고 2건을 겪었고, 원인
-          규명 · 수정 · 배포 검증까지 전부 남겼다.
-        </StoryTransition>
+        <div id="toc-act5" className="scroll-mt-20">
+          <StoryTransition tone="evidence">
+            <span className="font-semibold text-stone-950">
+              Act 5. 책상에서만 맞는 결론은 못 믿는다.
+            </span>{" "}
+            이 대시보드를 만드는 도중 staging에서 실제로 사고 2건을 겪었고, 원인
+            규명 · 수정 · 배포 검증까지 전부 남겼다.
+          </StoryTransition>
+        </div>
 
         <section className="glass-card rounded-[2rem] px-6 py-6 sm:px-7">
           <p className="eyebrow">Operations Incidents</p>
@@ -511,7 +548,10 @@ ROUNDS=5 POLL_INTERVAL_MS=100 \\
         {/* ──────────────────────────────────────
            APPENDIX — 모든 raw 데이터
            ────────────────────────────────────── */}
-        <div className="mt-4 border-t border-stone-300/80 pt-2 text-center">
+        <div
+          id="toc-appendix"
+          className="mt-4 border-t border-stone-300/80 pt-2 text-center scroll-mt-20"
+        >
           <p className="eyebrow">Appendix · Raw Data</p>
           <p className="mt-1 text-xs text-stone-500">
             위에서 요약한 모든 수치의 원본 데이터. 빠짐없이 기록합니다.
@@ -599,7 +639,9 @@ ROUNDS=5 POLL_INTERVAL_MS=100 \\
 
         <ReproducibleBlock />
 
-        <FinalCta />
+        <div id="toc-cta" className="scroll-mt-20">
+          <FinalCta />
+        </div>
 
         <section className="glass-card rounded-[2rem] px-6 py-6 sm:px-7">
           <p className="eyebrow">Series</p>
@@ -626,6 +668,7 @@ ROUNDS=5 POLL_INTERVAL_MS=100 \\
             .
           </p>
         </section>
+        </div>
       </div>
     </main>
   );
