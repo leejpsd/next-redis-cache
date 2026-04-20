@@ -1,0 +1,136 @@
+{
+  "taskAUrl": "http://localhost:3000",
+  "taskBUrl": "http://localhost:3001",
+  "rounds": [
+    {
+      "round": 1,
+      "triggeredAt": 1776649352709,
+      "baseline": {
+        "A": "بهار-محمدخان-bhr.mhmdkhn@example.com",
+        "B": "بهار-محمدخان-bhr.mhmdkhn@example.com"
+      },
+      "a": {
+        "detectedAt": 1776649352719,
+        "elapsedMs": 10,
+        "polls": 1,
+        "newFingerprint": "Abelardo-Almonte-abelardo.almonte@example.com"
+      },
+      "b": {
+        "detectedAt": 1776649352719,
+        "elapsedMs": 10,
+        "polls": 1,
+        "newFingerprint": "Vitório-Caldeira-vitorio.caldeira@example.com"
+      }
+    },
+    {
+      "round": 2,
+      "triggeredAt": 1776649354615,
+      "baseline": {
+        "A": "Abelardo-Almonte-abelardo.almonte@example.com",
+        "B": "Abelardo-Almonte-abelardo.almonte@example.com"
+      },
+      "a": {
+        "detectedAt": 1776649354621,
+        "elapsedMs": 6,
+        "polls": 1,
+        "newFingerprint": "Hugo-Núñez-hugo.nunez@example.com"
+      },
+      "b": {
+        "detectedAt": 1776649354621,
+        "elapsedMs": 6,
+        "polls": 1,
+        "newFingerprint": "Olga-Noriega-olga.noriega@example.com"
+      }
+    },
+    {
+      "round": 3,
+      "triggeredAt": 1776649355383,
+      "baseline": {
+        "A": "Olga-Noriega-olga.noriega@example.com",
+        "B": "Olga-Noriega-olga.noriega@example.com"
+      },
+      "a": {
+        "detectedAt": 1776649355388,
+        "elapsedMs": 5,
+        "polls": 1,
+        "newFingerprint": "Vijay-Jahangier-vijay.jahangier@example.com"
+      },
+      "b": {
+        "detectedAt": 1776649355388,
+        "elapsedMs": 5,
+        "polls": 1,
+        "newFingerprint": "Oscar-Turner-oscar.turner@example.com"
+      }
+    },
+    {
+      "round": 4,
+      "triggeredAt": 1776649356153,
+      "baseline": {
+        "A": "Oscar-Turner-oscar.turner@example.com",
+        "B": "Oscar-Turner-oscar.turner@example.com"
+      },
+      "a": {
+        "detectedAt": 1776649356159,
+        "elapsedMs": 6,
+        "polls": 1,
+        "newFingerprint": "Manuel-Benítez-manuel.benitez@example.com"
+      },
+      "b": {
+        "detectedAt": 1776649356159,
+        "elapsedMs": 6,
+        "polls": 1,
+        "newFingerprint": "Suzy-Rogers-suzy.rogers@example.com"
+      }
+    },
+    {
+      "round": 5,
+      "triggeredAt": 1776649356925,
+      "baseline": {
+        "A": "Manuel-Benítez-manuel.benitez@example.com",
+        "B": "Manuel-Benítez-manuel.benitez@example.com"
+      },
+      "a": {
+        "detectedAt": 1776649356930,
+        "elapsedMs": 5,
+        "polls": 1,
+        "newFingerprint": "Marine-Fernandez-marine.fernandez@example.com"
+      },
+      "b": {
+        "detectedAt": 1776649356930,
+        "elapsedMs": 5,
+        "polls": 1,
+        "newFingerprint": "Dobrivoje-Gojković-dobrivoje.gojkovic@example.com"
+      }
+    }
+  ],
+  "pollIntervalMs": 100,
+  "maxWaitMs": 15000,
+  "measuredAt": "2026-04-20T01:42:37.673Z",
+  "description": "두 태스크(포트 3000·3001)가 같은 Redis를 공유하는 상태에서 태그 무효화 후 각 태스크가 새 유저를 반환하는 데 걸린 시간. polls = 감지까지 필요했던 HTTP 요청 수.",
+  "summary": {
+    "A": {
+      "count": 5,
+      "timeoutCount": 0,
+      "avg": 6.4,
+      "min": 5,
+      "med": 6,
+      "max": 10
+    },
+    "B": {
+      "count": 5,
+      "timeoutCount": 0,
+      "avg": 6.4,
+      "min": 5,
+      "med": 6,
+      "max": 10
+    },
+    "combined": {
+      "count": 10,
+      "timeoutCount": 0,
+      "avg": 6.4,
+      "min": 5,
+      "med": 6,
+      "max": 10
+    }
+  }
+}

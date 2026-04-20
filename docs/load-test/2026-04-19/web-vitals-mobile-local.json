@@ -1,0 +1,734 @@
+{
+  "baseUrl": "http://localhost:3000",
+  "formFactor": "mobile",
+  "runsPerRoute": 5,
+  "measuredAt": "2026-04-19T13:11:31.436Z",
+  "routes": {
+    "ssr": {
+      "path": "/experiments/ssr",
+      "runs": [
+        {
+          "first-contentful-paint": 758.94,
+          "largest-contentful-paint": 1944.44,
+          "speed-index": 1440.5389674470766,
+          "total-blocking-time": 76,
+          "cumulative-layout-shift": 0,
+          "interactive": 1984.94,
+          "server-response-time": 3.9390000000000005,
+          "performance-score": 99
+        },
+        {
+          "first-contentful-paint": 756.258,
+          "largest-contentful-paint": 1878.258,
+          "speed-index": 1251.3895999118802,
+          "total-blocking-time": 22,
+          "cumulative-layout-shift": 0,
+          "interactive": 1878.2580000000003,
+          "server-response-time": 3.799,
+          "performance-score": 100
+        },
+        {
+          "first-contentful-paint": 755.2560000000001,
+          "largest-contentful-paint": 1878.256,
+          "speed-index": 1164.364640017891,
+          "total-blocking-time": 23,
+          "cumulative-layout-shift": 0,
+          "interactive": 1878.2560000000003,
+          "server-response-time": 3.754,
+          "performance-score": 100
+        },
+        {
+          "first-contentful-paint": 755.0640000000001,
+          "largest-contentful-paint": 1894.064,
+          "speed-index": 1157.369096023178,
+          "total-blocking-time": 39,
+          "cumulative-layout-shift": 0,
+          "interactive": 1894.064,
+          "server-response-time": 3.436,
+          "performance-score": 100
+        },
+        {
+          "first-contentful-paint": 754.4000000000001,
+          "largest-contentful-paint": 1905.4,
+          "speed-index": 1442.570100236937,
+          "total-blocking-time": 26,
+          "cumulative-layout-shift": 0,
+          "interactive": 1908.3000000000002,
+          "server-response-time": 3.612,
+          "performance-score": 100
+        }
+      ],
+      "summary": {
+        "first-contentful-paint": {
+          "count": 5,
+          "avg": 756,
+          "min": 754.4,
+          "med": 755.3,
+          "p95": 758.9,
+          "max": 758.9
+        },
+        "largest-contentful-paint": {
+          "count": 5,
+          "avg": 1900.1,
+          "min": 1878.3,
+          "med": 1894.1,
+          "p95": 1944.4,
+          "max": 1944.4
+        },
+        "speed-index": {
+          "count": 5,
+          "avg": 1291.2,
+          "min": 1157.4,
+          "med": 1251.4,
+          "p95": 1442.6,
+          "max": 1442.6
+        },
+        "total-blocking-time": {
+          "count": 5,
+          "avg": 37.2,
+          "min": 22,
+          "med": 26,
+          "p95": 76,
+          "max": 76
+        },
+        "cumulative-layout-shift": {
+          "count": 5,
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0
+        },
+        "interactive": {
+          "count": 5,
+          "avg": 1908.8,
+          "min": 1878.3,
+          "med": 1894.1,
+          "p95": 1984.9,
+          "max": 1984.9
+        },
+        "server-response-time": {
+          "count": 5,
+          "avg": 3.7,
+          "min": 3.4,
+          "med": 3.8,
+          "p95": 3.9,
+          "max": 3.9
+        },
+        "performance-score": {
+          "count": 5,
+          "avg": 99.8,
+          "min": 99,
+          "med": 100,
+          "p95": 100,
+          "max": 100
+        }
+      }
+    },
+    "isr-fetch": {
+      "path": "/experiments/isr-fetch",
+      "runs": [
+        {
+          "first-contentful-paint": 759.9964,
+          "largest-contentful-paint": 1753.9964,
+          "speed-index": 1187.6388279891585,
+          "total-blocking-time": 44,
+          "cumulative-layout-shift": 0,
+          "interactive": 1903.9964,
+          "server-response-time": 19.513,
+          "performance-score": 100
+        },
+        {
+          "first-contentful-paint": 755.3685,
+          "largest-contentful-paint": 1745.3685,
+          "speed-index": 1141.0365001148227,
+          "total-blocking-time": 40,
+          "cumulative-layout-shift": 0,
+          "interactive": 1895.3685,
+          "server-response-time": 4.551,
+          "performance-score": 100
+        },
+        {
+          "first-contentful-paint": 753.9601,
+          "largest-contentful-paint": 1741.9601,
+          "speed-index": 1141.6947240252875,
+          "total-blocking-time": 38,
+          "cumulative-layout-shift": 0,
+          "interactive": 1891.9601000000002,
+          "server-response-time": 4.2090000000000005,
+          "performance-score": 100
+        },
+        {
+          "first-contentful-paint": 756.1542999999999,
+          "largest-contentful-paint": 1745.1543,
+          "speed-index": 1150.5772960936736,
+          "total-blocking-time": 39,
+          "cumulative-layout-shift": 0,
+          "interactive": 1895.1543000000001,
+          "server-response-time": 4.211,
+          "performance-score": 100
+        },
+        {
+          "first-contentful-paint": 755.5359000000001,
+          "largest-contentful-paint": 1743.5359,
+          "speed-index": 755.5359000000001,
+          "total-blocking-time": 38,
+          "cumulative-layout-shift": 0,
+          "interactive": 1893.5359000000003,
+          "server-response-time": 3.7199999999999998,
+          "performance-score": 100
+        }
+      ],
+      "summary": {
+        "first-contentful-paint": {
+          "count": 5,
+          "avg": 756.2,
+          "min": 754,
+          "med": 755.5,
+          "p95": 760,
+          "max": 760
+        },
+        "largest-contentful-paint": {
+          "count": 5,
+          "avg": 1746,
+          "min": 1742,
+          "med": 1745.2,
+          "p95": 1754,
+          "max": 1754
+        },
+        "speed-index": {
+          "count": 5,
+          "avg": 1075.3,
+          "min": 755.5,
+          "med": 1141.7,
+          "p95": 1187.6,
+          "max": 1187.6
+        },
+        "total-blocking-time": {
+          "count": 5,
+          "avg": 39.8,
+          "min": 38,
+          "med": 39,
+          "p95": 44,
+          "max": 44
+        },
+        "cumulative-layout-shift": {
+          "count": 5,
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0
+        },
+        "interactive": {
+          "count": 5,
+          "avg": 1896,
+          "min": 1892,
+          "med": 1895.2,
+          "p95": 1904,
+          "max": 1904
+        },
+        "server-response-time": {
+          "count": 5,
+          "avg": 7.2,
+          "min": 3.7,
+          "med": 4.2,
+          "p95": 19.5,
+          "max": 19.5
+        },
+        "performance-score": {
+          "count": 5,
+          "avg": 100,
+          "min": 100,
+          "med": 100,
+          "p95": 100,
+          "max": 100
+        }
+      }
+    },
+    "shared-cache": {
+      "path": "/experiments/shared-cache",
+      "runs": [
+        {
+          "first-contentful-paint": 754.634,
+          "largest-contentful-paint": 1926.134,
+          "speed-index": 1337.7886624004677,
+          "total-blocking-time": 51,
+          "cumulative-layout-shift": 0,
+          "interactive": 1955.634,
+          "server-response-time": 3.866,
+          "performance-score": 100
+        },
+        {
+          "first-contentful-paint": 754.844,
+          "largest-contentful-paint": 1892.844,
+          "speed-index": 1211.8766860290527,
+          "total-blocking-time": 38,
+          "cumulative-layout-shift": 0,
+          "interactive": 1892.844,
+          "server-response-time": 4.697,
+          "performance-score": 100
+        },
+        {
+          "first-contentful-paint": 754.6099999999999,
+          "largest-contentful-paint": 1893.61,
+          "speed-index": 1111.8994980766774,
+          "total-blocking-time": 39,
+          "cumulative-layout-shift": 0,
+          "interactive": 1893.6100000000001,
+          "server-response-time": 3.8880000000000003,
+          "performance-score": 100
+        },
+        {
+          "first-contentful-paint": 754.4380000000001,
+          "largest-contentful-paint": 1914.438,
+          "speed-index": 1506.3546266963385,
+          "total-blocking-time": 35,
+          "cumulative-layout-shift": 0,
+          "interactive": 1920.0380000000002,
+          "server-response-time": 3.721,
+          "performance-score": 100
+        },
+        {
+          "first-contentful-paint": 754.48,
+          "largest-contentful-paint": 1893.48,
+          "speed-index": 1194.796405883789,
+          "total-blocking-time": 39,
+          "cumulative-layout-shift": 0,
+          "interactive": 1893.48,
+          "server-response-time": 3.4530000000000003,
+          "performance-score": 100
+        }
+      ],
+      "summary": {
+        "first-contentful-paint": {
+          "count": 5,
+          "avg": 754.6,
+          "min": 754.4,
+          "med": 754.6,
+          "p95": 754.8,
+          "max": 754.8
+        },
+        "largest-contentful-paint": {
+          "count": 5,
+          "avg": 1904.1,
+          "min": 1892.8,
+          "med": 1893.6,
+          "p95": 1926.1,
+          "max": 1926.1
+        },
+        "speed-index": {
+          "count": 5,
+          "avg": 1272.5,
+          "min": 1111.9,
+          "med": 1211.9,
+          "p95": 1506.4,
+          "max": 1506.4
+        },
+        "total-blocking-time": {
+          "count": 5,
+          "avg": 40.4,
+          "min": 35,
+          "med": 39,
+          "p95": 51,
+          "max": 51
+        },
+        "cumulative-layout-shift": {
+          "count": 5,
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0
+        },
+        "interactive": {
+          "count": 5,
+          "avg": 1911.1,
+          "min": 1892.8,
+          "med": 1893.6,
+          "p95": 1955.6,
+          "max": 1955.6
+        },
+        "server-response-time": {
+          "count": 5,
+          "avg": 3.9,
+          "min": 3.5,
+          "med": 3.9,
+          "p95": 4.7,
+          "max": 4.7
+        },
+        "performance-score": {
+          "count": 5,
+          "avg": 100,
+          "min": 100,
+          "med": 100,
+          "p95": 100,
+          "max": 100
+        }
+      }
+    },
+    "hybrid": {
+      "path": "/experiments/hybrid",
+      "runs": [
+        {
+          "first-contentful-paint": 754.258,
+          "largest-contentful-paint": 1742.258,
+          "speed-index": 754.258,
+          "total-blocking-time": 38,
+          "cumulative-layout-shift": 0,
+          "interactive": 1892.2580000000003,
+          "server-response-time": 3.581,
+          "performance-score": 100
+        },
+        {
+          "first-contentful-paint": 753.864,
+          "largest-contentful-paint": 1740.864,
+          "speed-index": 753.864,
+          "total-blocking-time": 37,
+          "cumulative-layout-shift": 0,
+          "interactive": 1890.864,
+          "server-response-time": 3.851,
+          "performance-score": 100
+        },
+        {
+          "first-contentful-paint": 754.3699999999999,
+          "largest-contentful-paint": 1743.37,
+          "speed-index": 754.3699999999999,
+          "total-blocking-time": 39,
+          "cumulative-layout-shift": 0,
+          "interactive": 1893.37,
+          "server-response-time": 4.169,
+          "performance-score": 100
+        },
+        {
+          "first-contentful-paint": 753.99,
+          "largest-contentful-paint": 1742.99,
+          "speed-index": 753.99,
+          "total-blocking-time": 39,
+          "cumulative-layout-shift": 0,
+          "interactive": 1892.9900000000002,
+          "server-response-time": 3.8540000000000005,
+          "performance-score": 100
+        },
+        {
+          "first-contentful-paint": 753.972,
+          "largest-contentful-paint": 1745.972,
+          "speed-index": 753.972,
+          "total-blocking-time": 42,
+          "cumulative-layout-shift": 0,
+          "interactive": 1895.9720000000002,
+          "server-response-time": 3.547,
+          "performance-score": 100
+        }
+      ],
+      "summary": {
+        "first-contentful-paint": {
+          "count": 5,
+          "avg": 754.1,
+          "min": 753.9,
+          "med": 754,
+          "p95": 754.4,
+          "max": 754.4
+        },
+        "largest-contentful-paint": {
+          "count": 5,
+          "avg": 1743.1,
+          "min": 1740.9,
+          "med": 1743,
+          "p95": 1746,
+          "max": 1746
+        },
+        "speed-index": {
+          "count": 5,
+          "avg": 754.1,
+          "min": 753.9,
+          "med": 754,
+          "p95": 754.4,
+          "max": 754.4
+        },
+        "total-blocking-time": {
+          "count": 5,
+          "avg": 39,
+          "min": 37,
+          "med": 39,
+          "p95": 42,
+          "max": 42
+        },
+        "cumulative-layout-shift": {
+          "count": 5,
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0
+        },
+        "interactive": {
+          "count": 5,
+          "avg": 1893.1,
+          "min": 1890.9,
+          "med": 1893,
+          "p95": 1896,
+          "max": 1896
+        },
+        "server-response-time": {
+          "count": 5,
+          "avg": 3.8,
+          "min": 3.5,
+          "med": 3.9,
+          "p95": 4.2,
+          "max": 4.2
+        },
+        "performance-score": {
+          "count": 5,
+          "avg": 100,
+          "min": 100,
+          "med": 100,
+          "p95": 100,
+          "max": 100
+        }
+      }
+    },
+    "csr": {
+      "path": "/experiments/csr",
+      "runs": [
+        {
+          "first-contentful-paint": 755.5464,
+          "largest-contentful-paint": 4451.400000000001,
+          "speed-index": 1464.075759935913,
+          "total-blocking-time": 41,
+          "cumulative-layout-shift": 0,
+          "interactive": 4451.400000000001,
+          "server-response-time": 3.582,
+          "performance-score": 85
+        },
+        {
+          "first-contentful-paint": 755.12815,
+          "largest-contentful-paint": 2889.5475500000002,
+          "speed-index": 1187.4064720966912,
+          "total-blocking-time": 43,
+          "cumulative-layout-shift": 0,
+          "interactive": 2889.5475500000002,
+          "server-response-time": 4.293,
+          "performance-score": 95
+        },
+        {
+          "first-contentful-paint": 754.3716000000001,
+          "largest-contentful-paint": 2875.54465,
+          "speed-index": 1184.2037520152471,
+          "total-blocking-time": 42,
+          "cumulative-layout-shift": 0,
+          "interactive": 2875.54465,
+          "server-response-time": 4.123,
+          "performance-score": 95
+        },
+        {
+          "first-contentful-paint": 755.64105,
+          "largest-contentful-paint": 2869.97085,
+          "speed-index": 1178.8958199919891,
+          "total-blocking-time": 37,
+          "cumulative-layout-shift": 0,
+          "interactive": 2869.9708500000006,
+          "server-response-time": 3.975,
+          "performance-score": 95
+        },
+        {
+          "first-contentful-paint": 754.1194499999999,
+          "largest-contentful-paint": 2914.337,
+          "speed-index": 1181.6693560669705,
+          "total-blocking-time": 39,
+          "cumulative-layout-shift": 0,
+          "interactive": 2914.337,
+          "server-response-time": 3.821,
+          "performance-score": 95
+        }
+      ],
+      "summary": {
+        "first-contentful-paint": {
+          "count": 5,
+          "avg": 755,
+          "min": 754.1,
+          "med": 755.1,
+          "p95": 755.6,
+          "max": 755.6
+        },
+        "largest-contentful-paint": {
+          "count": 5,
+          "avg": 3200.2,
+          "min": 2870,
+          "med": 2889.5,
+          "p95": 4451.4,
+          "max": 4451.4
+        },
+        "speed-index": {
+          "count": 5,
+          "avg": 1239.3,
+          "min": 1178.9,
+          "med": 1184.2,
+          "p95": 1464.1,
+          "max": 1464.1
+        },
+        "total-blocking-time": {
+          "count": 5,
+          "avg": 40.4,
+          "min": 37,
+          "med": 41,
+          "p95": 43,
+          "max": 43
+        },
+        "cumulative-layout-shift": {
+          "count": 5,
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0
+        },
+        "interactive": {
+          "count": 5,
+          "avg": 3200.2,
+          "min": 2870,
+          "med": 2889.5,
+          "p95": 4451.4,
+          "max": 4451.4
+        },
+        "server-response-time": {
+          "count": 5,
+          "avg": 4,
+          "min": 3.6,
+          "med": 4,
+          "p95": 4.3,
+          "max": 4.3
+        },
+        "performance-score": {
+          "count": 5,
+          "avg": 93,
+          "min": 85,
+          "med": 95,
+          "p95": 95,
+          "max": 95
+        }
+      }
+    },
+    "bff": {
+      "path": "/experiments/bff",
+      "runs": [
+        {
+          "first-contentful-paint": 754.6243999999999,
+          "largest-contentful-paint": 1956.9366,
+          "speed-index": 1186.5550500402544,
+          "total-blocking-time": 39,
+          "cumulative-layout-shift": 0,
+          "interactive": 2043.6244000000002,
+          "server-response-time": 3.681,
+          "performance-score": 99
+        },
+        {
+          "first-contentful-paint": 757.2653,
+          "largest-contentful-paint": 2110.89795,
+          "speed-index": 910.9981079376889,
+          "total-blocking-time": 39,
+          "cumulative-layout-shift": 0,
+          "interactive": 2110.8979500000005,
+          "server-response-time": 3.994,
+          "performance-score": 99
+        },
+        {
+          "first-contentful-paint": 754.7946999999999,
+          "largest-contentful-paint": 1957.1920499999999,
+          "speed-index": 1250.336932050829,
+          "total-blocking-time": 42,
+          "cumulative-layout-shift": 0,
+          "interactive": 2046.7947,
+          "server-response-time": 3.1879999999999997,
+          "performance-score": 99
+        },
+        {
+          "first-contentful-paint": 753.5472,
+          "largest-contentful-paint": 1955.3208,
+          "speed-index": 1191.337238071804,
+          "total-blocking-time": 40,
+          "cumulative-layout-shift": 0,
+          "interactive": 2043.5472,
+          "server-response-time": 3.6220000000000003,
+          "performance-score": 99
+        },
+        {
+          "first-contentful-paint": 754.3105,
+          "largest-contentful-paint": 1956.46575,
+          "speed-index": 1174.4404640290259,
+          "total-blocking-time": 38,
+          "cumulative-layout-shift": 0,
+          "interactive": 2042.3105000000003,
+          "server-response-time": 3.5999999999999996,
+          "performance-score": 99
+        }
+      ],
+      "summary": {
+        "first-contentful-paint": {
+          "count": 5,
+          "avg": 754.9,
+          "min": 753.5,
+          "med": 754.6,
+          "p95": 757.3,
+          "max": 757.3
+        },
+        "largest-contentful-paint": {
+          "count": 5,
+          "avg": 1987.4,
+          "min": 1955.3,
+          "med": 1956.9,
+          "p95": 2110.9,
+          "max": 2110.9
+        },
+        "speed-index": {
+          "count": 5,
+          "avg": 1142.7,
+          "min": 911,
+          "med": 1186.6,
+          "p95": 1250.3,
+          "max": 1250.3
+        },
+        "total-blocking-time": {
+          "count": 5,
+          "avg": 39.6,
+          "min": 38,
+          "med": 39,
+          "p95": 42,
+          "max": 42
+        },
+        "cumulative-layout-shift": {
+          "count": 5,
+          "avg": 0,
+          "min": 0,
+          "med": 0,
+          "p95": 0,
+          "max": 0
+        },
+        "interactive": {
+          "count": 5,
+          "avg": 2057.4,
+          "min": 2042.3,
+          "med": 2043.6,
+          "p95": 2110.9,
+          "max": 2110.9
+        },
+        "server-response-time": {
+          "count": 5,
+          "avg": 3.6,
+          "min": 3.2,
+          "med": 3.6,
+          "p95": 4,
+          "max": 4
+        },
+        "performance-score": {
+          "count": 5,
+          "avg": 99,
+          "min": 99,
+          "med": 99,
+          "p95": 99,
+          "max": 99
+        }
+      }
+    }
+  }
+}

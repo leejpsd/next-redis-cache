@@ -1,0 +1,162 @@
+{
+  "baseUrl": "http://localhost:3000",
+  "sessionsPerRoute": 5,
+  "measuredAt": "2026-04-20T01:38:53.163Z",
+  "description": "각 전략 페이지에 fresh browser context로 접속했을 때 브라우저가 randomuser.me/api 를 직접 호출한 횟수. CSR은 사용자 수만큼 직접 호출, 서버 렌더 전략은 서버가 프록시하므로 브라우저에선 0회가 기대됨.",
+  "results": {
+    "csr": {
+      "path": "/experiments/csr",
+      "sessions": 5,
+      "originFetchCounts": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "stats": {
+        "avg": 1,
+        "min": 1,
+        "max": 1,
+        "sum": 5
+      },
+      "monthlyExtrapolation": {
+        "note": "월 100만 세션 × 세션당 평균 origin 호출 수",
+        "perSessionAvg": 1,
+        "monthly1M": 1000000
+      },
+      "sampleRequests": [
+        {
+          "url": "https://randomuser.me/api",
+          "resourceType": "fetch",
+          "method": "GET"
+        },
+        {
+          "url": "https://randomuser.me/api",
+          "resourceType": "fetch",
+          "method": "GET"
+        },
+        {
+          "url": "https://randomuser.me/api",
+          "resourceType": "fetch",
+          "method": "GET"
+        }
+      ]
+    },
+    "bff": {
+      "path": "/experiments/bff",
+      "sessions": 5,
+      "originFetchCounts": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "stats": {
+        "avg": 0,
+        "min": 0,
+        "max": 0,
+        "sum": 0
+      },
+      "monthlyExtrapolation": {
+        "note": "월 100만 세션 × 세션당 평균 origin 호출 수",
+        "perSessionAvg": 0,
+        "monthly1M": 0
+      },
+      "sampleRequests": []
+    },
+    "ssr": {
+      "path": "/experiments/ssr",
+      "sessions": 5,
+      "originFetchCounts": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "stats": {
+        "avg": 0,
+        "min": 0,
+        "max": 0,
+        "sum": 0
+      },
+      "monthlyExtrapolation": {
+        "note": "월 100만 세션 × 세션당 평균 origin 호출 수",
+        "perSessionAvg": 0,
+        "monthly1M": 0
+      },
+      "sampleRequests": []
+    },
+    "isr-fetch": {
+      "path": "/experiments/isr-fetch",
+      "sessions": 5,
+      "originFetchCounts": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "stats": {
+        "avg": 0,
+        "min": 0,
+        "max": 0,
+        "sum": 0
+      },
+      "monthlyExtrapolation": {
+        "note": "월 100만 세션 × 세션당 평균 origin 호출 수",
+        "perSessionAvg": 0,
+        "monthly1M": 0
+      },
+      "sampleRequests": []
+    },
+    "shared-cache": {
+      "path": "/experiments/shared-cache",
+      "sessions": 5,
+      "originFetchCounts": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "stats": {
+        "avg": 0,
+        "min": 0,
+        "max": 0,
+        "sum": 0
+      },
+      "monthlyExtrapolation": {
+        "note": "월 100만 세션 × 세션당 평균 origin 호출 수",
+        "perSessionAvg": 0,
+        "monthly1M": 0
+      },
+      "sampleRequests": []
+    },
+    "hybrid": {
+      "path": "/experiments/hybrid",
+      "sessions": 5,
+      "originFetchCounts": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "stats": {
+        "avg": 0,
+        "min": 0,
+        "max": 0,
+        "sum": 0
+      },
+      "monthlyExtrapolation": {
+        "note": "월 100만 세션 × 세션당 평균 origin 호출 수",
+        "perSessionAvg": 0,
+        "monthly1M": 0
+      },
+      "sampleRequests": []
+    }
+  }
+}

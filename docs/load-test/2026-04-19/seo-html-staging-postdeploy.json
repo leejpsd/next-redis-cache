@@ -1,0 +1,366 @@
+{
+  "baseUrl": "http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com",
+  "measuredAt": "2026-04-19T13:41:56.897Z",
+  "results": [
+    {
+      "route": "ssr",
+      "path": "/experiments/ssr",
+      "agent": "browser",
+      "status": 200,
+      "bytes": 13655,
+      "elapsedMs": 852.2,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "x-cache": null
+      },
+      "payload": {
+        "textLength": 96,
+        "hasNameLike": true,
+        "hasPlaceholder": true,
+        "hasCSRLoadingMarker": false,
+        "sample": "Redis Cache Demo Next App Experiment / SSR Request-time server rendering 요청 시 원본 데이터를 준비하는 중입니다."
+      }
+    },
+    {
+      "route": "ssr",
+      "path": "/experiments/ssr",
+      "agent": "googlebot",
+      "status": 200,
+      "bytes": 18208,
+      "elapsedMs": 558.3,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "x-cache": null
+      },
+      "payload": {
+        "textLength": 3387,
+        "hasNameLike": true,
+        "hasPlaceholder": false,
+        "hasCSRLoadingMarker": false,
+        "sample": "Redis Cache Demo Next App Experiment / SSR Request-time server rendering 요청이 들어올 때마다 서버가 원본 데이터를 다시 가져와 렌더링합니다. 가장 직관적이지만 origin fetch 비용과 렌더 비용이 매 요청마다 발생합니다. Strategy Summary 항상 최신 데이터를 보여주기 쉽지만, 캐시"
+      }
+    },
+    {
+      "route": "ssr",
+      "path": "/experiments/ssr",
+      "agent": "naked-curl",
+      "status": 200,
+      "bytes": 13646,
+      "elapsedMs": 467.1,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "x-cache": null
+      },
+      "payload": {
+        "textLength": 96,
+        "hasNameLike": true,
+        "hasPlaceholder": true,
+        "hasCSRLoadingMarker": false,
+        "sample": "Redis Cache Demo Next App Experiment / SSR Request-time server rendering 요청 시 원본 데이터를 준비하는 중입니다."
+      }
+    },
+    {
+      "route": "isr-fetch",
+      "path": "/experiments/isr-fetch",
+      "agent": "browser",
+      "status": 200,
+      "bytes": 17914,
+      "elapsedMs": 519.5,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "s-maxage=60, stale-while-revalidate=31535940",
+        "x-cache": null
+      },
+      "payload": {
+        "textLength": 3466,
+        "hasNameLike": true,
+        "hasPlaceholder": false,
+        "hasCSRLoadingMarker": false,
+        "sample": "Redis Cache Demo Next App Experiment / ISR(fetch) Incremental cache via fetch revalidate `use cache` 없이 `fetch(..., { next: { revalidate, tags } })`만으로 결과를 재사용하는 경로입니다. self-hosting에서는 이 계층이 increment"
+      }
+    },
+    {
+      "route": "isr-fetch",
+      "path": "/experiments/isr-fetch",
+      "agent": "googlebot",
+      "status": 200,
+      "bytes": 17651,
+      "elapsedMs": 175.2,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "x-cache": null
+      },
+      "payload": {
+        "textLength": 3478,
+        "hasNameLike": true,
+        "hasPlaceholder": false,
+        "hasCSRLoadingMarker": false,
+        "sample": "Redis Cache Demo Next App Experiment / ISR(fetch) Incremental cache via fetch revalidate `use cache` 없이 `fetch(..., { next: { revalidate, tags } })`만으로 결과를 재사용하는 경로입니다. self-hosting에서는 이 계층이 increment"
+      }
+    },
+    {
+      "route": "isr-fetch",
+      "path": "/experiments/isr-fetch",
+      "agent": "naked-curl",
+      "status": 200,
+      "bytes": 17914,
+      "elapsedMs": 192.3,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "s-maxage=60, stale-while-revalidate=31535940",
+        "x-cache": null
+      },
+      "payload": {
+        "textLength": 3466,
+        "hasNameLike": true,
+        "hasPlaceholder": false,
+        "hasCSRLoadingMarker": false,
+        "sample": "Redis Cache Demo Next App Experiment / ISR(fetch) Incremental cache via fetch revalidate `use cache` 없이 `fetch(..., { next: { revalidate, tags } })`만으로 결과를 재사용하는 경로입니다. self-hosting에서는 이 계층이 increment"
+      }
+    },
+    {
+      "route": "shared-cache",
+      "path": "/experiments/shared-cache",
+      "agent": "browser",
+      "status": 200,
+      "bytes": 13752,
+      "elapsedMs": 440.2,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "x-cache": null
+      },
+      "payload": {
+        "textLength": 113,
+        "hasNameLike": true,
+        "hasPlaceholder": true,
+        "hasCSRLoadingMarker": false,
+        "sample": "Redis Cache Demo Next App Experiment / Cache Components Shared cache with Cache Components 요청 시 캐시 결과를 준비하는 중입니다."
+      }
+    },
+    {
+      "route": "shared-cache",
+      "path": "/experiments/shared-cache",
+      "agent": "googlebot",
+      "status": 200,
+      "bytes": 18330,
+      "elapsedMs": 178.4,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "x-cache": null
+      },
+      "payload": {
+        "textLength": 3432,
+        "hasNameLike": true,
+        "hasPlaceholder": false,
+        "hasCSRLoadingMarker": false,
+        "sample": "Redis Cache Demo Next App Experiment / Cache Components Shared cache with Cache Components `use cache`, `cacheLife`, `cacheTag`를 사용해 함수 결과를 재사용하고, 멀티 인스턴스 self-hosting에서는 Redis shared cache로 중앙화한 경로입니"
+      }
+    },
+    {
+      "route": "shared-cache",
+      "path": "/experiments/shared-cache",
+      "agent": "naked-curl",
+      "status": 200,
+      "bytes": 13752,
+      "elapsedMs": 190.2,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "x-cache": null
+      },
+      "payload": {
+        "textLength": 113,
+        "hasNameLike": true,
+        "hasPlaceholder": true,
+        "hasCSRLoadingMarker": false,
+        "sample": "Redis Cache Demo Next App Experiment / Cache Components Shared cache with Cache Components 요청 시 캐시 결과를 준비하는 중입니다."
+      }
+    },
+    {
+      "route": "hybrid",
+      "path": "/experiments/hybrid",
+      "agent": "browser",
+      "status": 200,
+      "bytes": 15616,
+      "elapsedMs": 601.2,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "x-cache": null
+      },
+      "payload": {
+        "textLength": 745,
+        "hasNameLike": true,
+        "hasPlaceholder": true,
+        "hasCSRLoadingMarker": false,
+        "sample": "Redis Cache Demo Next App Experiment / Hybrid Streaming SSR + per-section Cache Components 한 페이지 안에서 섹션별로 다른 캐시 전략을 쓰고, Suspense 경계로 각 섹션을 병렬 스트리밍합니다. shell과 쉘은 즉시 내려가고, 각 섹션은 준비되는 대로 붙습니다. rendered b"
+      }
+    },
+    {
+      "route": "hybrid",
+      "path": "/experiments/hybrid",
+      "agent": "googlebot",
+      "status": 200,
+      "bytes": 13976,
+      "elapsedMs": 408.3,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "x-cache": null
+      },
+      "payload": {
+        "textLength": 707,
+        "hasNameLike": true,
+        "hasPlaceholder": true,
+        "hasCSRLoadingMarker": false,
+        "sample": "Redis Cache Demo Next App Experiment / Hybrid Streaming SSR + per-section Cache Components 한 페이지 안에서 섹션별로 다른 캐시 전략을 쓰고, Suspense 경계로 각 섹션을 병렬 스트리밍합니다. shell과 쉘은 즉시 내려가고, 각 섹션은 준비되는 대로 붙습니다. rendered b"
+      }
+    },
+    {
+      "route": "hybrid",
+      "path": "/experiments/hybrid",
+      "agent": "naked-curl",
+      "status": 200,
+      "bytes": 15614,
+      "elapsedMs": 440.3,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "x-cache": null
+      },
+      "payload": {
+        "textLength": 744,
+        "hasNameLike": true,
+        "hasPlaceholder": true,
+        "hasCSRLoadingMarker": false,
+        "sample": "Redis Cache Demo Next App Experiment / Hybrid Streaming SSR + per-section Cache Components 한 페이지 안에서 섹션별로 다른 캐시 전략을 쓰고, Suspense 경계로 각 섹션을 병렬 스트리밍합니다. shell과 쉘은 즉시 내려가고, 각 섹션은 준비되는 대로 붙습니다. rendered b"
+      }
+    },
+    {
+      "route": "csr",
+      "path": "/experiments/csr",
+      "agent": "browser",
+      "status": 200,
+      "bytes": 8199,
+      "elapsedMs": 179.9,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "s-maxage=31536000",
+        "x-cache": null
+      },
+      "payload": {
+        "textLength": 93,
+        "hasNameLike": true,
+        "hasPlaceholder": true,
+        "hasCSRLoadingMarker": true,
+        "sample": "Redis Cache Demo Next App Experiment / CSR Direct client call baseline 브라우저에서 데이터를 가져오는 중입니다."
+      }
+    },
+    {
+      "route": "csr",
+      "path": "/experiments/csr",
+      "agent": "googlebot",
+      "status": 200,
+      "bytes": 7997,
+      "elapsedMs": 178.1,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "x-cache": null
+      },
+      "payload": {
+        "textLength": 93,
+        "hasNameLike": true,
+        "hasPlaceholder": true,
+        "hasCSRLoadingMarker": true,
+        "sample": "Redis Cache Demo Next App Experiment / CSR Direct client call baseline 브라우저에서 데이터를 가져오는 중입니다."
+      }
+    },
+    {
+      "route": "csr",
+      "path": "/experiments/csr",
+      "agent": "naked-curl",
+      "status": 200,
+      "bytes": 8199,
+      "elapsedMs": 179.8,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "s-maxage=31536000",
+        "x-cache": null
+      },
+      "payload": {
+        "textLength": 93,
+        "hasNameLike": true,
+        "hasPlaceholder": true,
+        "hasCSRLoadingMarker": true,
+        "sample": "Redis Cache Demo Next App Experiment / CSR Direct client call baseline 브라우저에서 데이터를 가져오는 중입니다."
+      }
+    },
+    {
+      "route": "bff",
+      "path": "/experiments/bff",
+      "agent": "browser",
+      "status": 200,
+      "bytes": 8133,
+      "elapsedMs": 179.8,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "s-maxage=31536000",
+        "x-cache": null
+      },
+      "payload": {
+        "textLength": 80,
+        "hasNameLike": true,
+        "hasPlaceholder": true,
+        "hasCSRLoadingMarker": true,
+        "sample": "Redis Cache Demo Next App Experiment / BFF Client via BFF 브라우저에서 데이터를 가져오는 중입니다."
+      }
+    },
+    {
+      "route": "bff",
+      "path": "/experiments/bff",
+      "agent": "googlebot",
+      "status": 200,
+      "bytes": 7921,
+      "elapsedMs": 166.6,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "x-cache": null
+      },
+      "payload": {
+        "textLength": 80,
+        "hasNameLike": true,
+        "hasPlaceholder": true,
+        "hasCSRLoadingMarker": true,
+        "sample": "Redis Cache Demo Next App Experiment / BFF Client via BFF 브라우저에서 데이터를 가져오는 중입니다."
+      }
+    },
+    {
+      "route": "bff",
+      "path": "/experiments/bff",
+      "agent": "naked-curl",
+      "status": 200,
+      "bytes": 8133,
+      "elapsedMs": 187.5,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "s-maxage=31536000",
+        "x-cache": null
+      },
+      "payload": {
+        "textLength": 80,
+        "hasNameLike": true,
+        "hasPlaceholder": true,
+        "hasCSRLoadingMarker": true,
+        "sample": "Redis Cache Demo Next App Experiment / BFF Client via BFF 브라우저에서 데이터를 가져오는 중입니다."
+      }
+    }
+  ]
+}

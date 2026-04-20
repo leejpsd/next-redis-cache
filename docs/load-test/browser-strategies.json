@@ -1,0 +1,203 @@
+{
+  "baseUrl": "http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com",
+  "iterations": 7,
+  "measuredAt": "2026-04-14T08:15:38.604Z",
+  "routes": {
+    "csr": {
+      "path": "/experiments/csr",
+      "samples": [
+        {
+          "iteration": 1,
+          "pageReadyMs": 1838.3,
+          "browserFetchMs": 558.2,
+          "readyToPaintMs": 558.5,
+          "bffServerMs": null,
+          "generatedBy": "browser:direct-client"
+        },
+        {
+          "iteration": 2,
+          "pageReadyMs": 1806.9,
+          "browserFetchMs": 505.8,
+          "readyToPaintMs": 506.1,
+          "bffServerMs": null,
+          "generatedBy": "browser:direct-client"
+        },
+        {
+          "iteration": 3,
+          "pageReadyMs": 1818.3,
+          "browserFetchMs": 486.2,
+          "readyToPaintMs": 486.5,
+          "bffServerMs": null,
+          "generatedBy": "browser:direct-client"
+        },
+        {
+          "iteration": 4,
+          "pageReadyMs": 1807.4,
+          "browserFetchMs": 499.1,
+          "readyToPaintMs": 499.4,
+          "bffServerMs": null,
+          "generatedBy": "browser:direct-client"
+        },
+        {
+          "iteration": 5,
+          "pageReadyMs": 1830.2,
+          "browserFetchMs": 483,
+          "readyToPaintMs": 483.1,
+          "bffServerMs": null,
+          "generatedBy": "browser:direct-client"
+        },
+        {
+          "iteration": 6,
+          "pageReadyMs": 1820.3,
+          "browserFetchMs": 493.3,
+          "readyToPaintMs": 493.7,
+          "bffServerMs": null,
+          "generatedBy": "browser:direct-client"
+        },
+        {
+          "iteration": 7,
+          "pageReadyMs": 1796.1,
+          "browserFetchMs": 505.6,
+          "readyToPaintMs": 506.3,
+          "bffServerMs": null,
+          "generatedBy": "browser:direct-client"
+        }
+      ],
+      "summary": {
+        "pageReadyMs": {
+          "count": 7,
+          "avg": 1816.8,
+          "min": 1796.1,
+          "med": 1818.3,
+          "p95": 1838.3,
+          "max": 1838.3
+        },
+        "browserFetchMs": {
+          "count": 7,
+          "avg": 504.5,
+          "min": 483,
+          "med": 499.1,
+          "p95": 558.2,
+          "max": 558.2
+        },
+        "readyToPaintMs": {
+          "count": 7,
+          "avg": 504.8,
+          "min": 483.1,
+          "med": 499.4,
+          "p95": 558.5,
+          "max": 558.5
+        },
+        "bffServerMs": {
+          "count": 0,
+          "avg": null,
+          "min": null,
+          "med": null,
+          "p95": null,
+          "max": null
+        },
+        "generatedByInstances": [
+          "browser:direct-client"
+        ]
+      }
+    },
+    "bff": {
+      "path": "/experiments/bff",
+      "samples": [
+        {
+          "iteration": 1,
+          "pageReadyMs": 1820.5,
+          "browserFetchMs": 519.1,
+          "readyToPaintMs": 519.6,
+          "bffServerMs": 352.5,
+          "generatedBy": "browser:bff"
+        },
+        {
+          "iteration": 2,
+          "pageReadyMs": 1813.1,
+          "browserFetchMs": 570.4,
+          "readyToPaintMs": 571,
+          "bffServerMs": 402.9,
+          "generatedBy": "browser:bff"
+        },
+        {
+          "iteration": 3,
+          "pageReadyMs": 1854.6,
+          "browserFetchMs": 390.8,
+          "readyToPaintMs": 391,
+          "bffServerMs": 223.5,
+          "generatedBy": "browser:bff"
+        },
+        {
+          "iteration": 4,
+          "pageReadyMs": 2915,
+          "browserFetchMs": 1569.5,
+          "readyToPaintMs": 1570,
+          "bffServerMs": 1407.3,
+          "generatedBy": "browser:bff"
+        },
+        {
+          "iteration": 5,
+          "pageReadyMs": 5052.6,
+          "browserFetchMs": 3690.7,
+          "readyToPaintMs": 3692,
+          "bffServerMs": 3536.5,
+          "generatedBy": "browser:bff"
+        },
+        {
+          "iteration": 6,
+          "pageReadyMs": 1803.4,
+          "browserFetchMs": 384.5,
+          "readyToPaintMs": 384.7,
+          "bffServerMs": 230.8,
+          "generatedBy": "browser:bff"
+        },
+        {
+          "iteration": 7,
+          "pageReadyMs": 1839.9,
+          "browserFetchMs": 717.7,
+          "readyToPaintMs": 718,
+          "bffServerMs": 384,
+          "generatedBy": "browser:bff"
+        }
+      ],
+      "summary": {
+        "pageReadyMs": {
+          "count": 7,
+          "avg": 2442.7,
+          "min": 1803.4,
+          "med": 1839.9,
+          "p95": 5052.6,
+          "max": 5052.6
+        },
+        "browserFetchMs": {
+          "count": 7,
+          "avg": 1120.4,
+          "min": 384.5,
+          "med": 570.4,
+          "p95": 3690.7,
+          "max": 3690.7
+        },
+        "readyToPaintMs": {
+          "count": 7,
+          "avg": 1120.9,
+          "min": 384.7,
+          "med": 571,
+          "p95": 3692,
+          "max": 3692
+        },
+        "bffServerMs": {
+          "count": 7,
+          "avg": 933.9,
+          "min": 223.5,
+          "med": 384,
+          "p95": 3536.5,
+          "max": 3536.5
+        },
+        "generatedByInstances": [
+          "browser:bff"
+        ]
+      }
+    }
+  }
+}
