@@ -1,4 +1,12 @@
 import Link from "next/link";
+import { BrowserTimingTable } from "./components/BrowserTimingTable";
+import { GlossaryCard } from "./components/GlossaryCard";
+import { LcpBarChart } from "./components/LcpBarChart";
+import { LighthouseFullTable } from "./components/LighthouseFullTable";
+import { OriginFetchChart } from "./components/OriginFetchChart";
+import { SeoTable } from "./components/SeoTable";
+import { ServerTimingTable } from "./components/ServerTimingTable";
+import { SpikeRedisProof } from "./components/SpikeRedisProof";
 
 type StrategyRow = {
   key: string;
@@ -84,15 +92,6 @@ const COST_ROWS = [
 
 const COST_TOTAL = COST_ROWS.reduce((acc, r) => acc + r.cost, 0);
 
-const SOAK_ROWS = [
-  { label: "총 요청 수", value: "18,164" },
-  { label: "처리량", value: "약 10 req/s" },
-  { label: "avg 응답", value: "190ms" },
-  { label: "p95 응답", value: "217ms" },
-  { label: "에러율", value: "0.00% (실패 1건)" },
-  { label: "Redis 키 (시작 → 종료)", value: "1 → 1 (누수 없음)" },
-] as const;
-
 const ORIGIN_FETCH_ROWS = [
   {
     strategy: "SSR (no-store)",
@@ -118,22 +117,6 @@ const ORIGIN_FETCH_ROWS = [
     estimatedCost: "—",
     tone: "warn" as const,
   },
-];
-
-const LIGHTHOUSE_4G = [
-  { strategy: "ISR", lcp: 1746, score: 100, tone: "good" as const },
-  { strategy: "Hybrid", lcp: 1743, score: 100, tone: "good" as const },
-  { strategy: "shared-cache", lcp: 1904, score: 100, tone: "good" as const },
-  { strategy: "SSR", lcp: 1900, score: 100, tone: "good" as const },
-  { strategy: "BFF", lcp: 1987, score: 99, tone: "mid" as const },
-  { strategy: "CSR", lcp: 3200, score: 93, tone: "warn" as const },
-];
-
-const LIGHTHOUSE_3G = [
-  { strategy: "ISR / Hybrid", lcp: 5693, tone: "good" as const },
-  { strategy: "SSR / shared-cache", lcp: 6093, tone: "mid" as const },
-  { strategy: "BFF", lcp: 6275, tone: "mid" as const },
-  { strategy: "CSR", lcp: 8398, tone: "warn" as const },
 ];
 
 const INCIDENTS = [
@@ -289,6 +272,8 @@ export default function DashboardPage() {
           </span>
         </nav>
 
+        <GlossaryCard />
+
         <section className="glass-card rounded-[2rem] px-6 py-6 sm:px-7">
           <p className="eyebrow">Dashboard</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-stone-950 sm:text-[2.5rem]">
@@ -319,6 +304,14 @@ export default function DashboardPage() {
               <p className="mt-2 text-sm leading-6 text-stone-600">{h.body}</p>
             </div>
           ))}
+        </section>
+
+        {/* 시각화 블록 — 핵심 결론을 한눈에 */}
+        <SpikeRedisProof />
+
+        <section className="grid gap-5 xl:grid-cols-2">
+          <LcpBarChart />
+          <OriginFetchChart />
         </section>
 
         <section className="glass-card overflow-x-auto rounded-[2rem] px-6 py-6 sm:px-7">
@@ -380,113 +373,21 @@ export default function DashboardPage() {
             </tbody>
           </table>
           <p className="mt-3 text-xs leading-5 text-stone-500">
-            Hybrid / CSR / BFF는 k6 측정 대상에 포함되지 않아 서버 p95는 표시하지
-            않았습니다. LCP는 Lighthouse 로컬 production build 기준.
+            Hybrid / CSR / BFF는 부하 테스트(k6) 대상이 아니라 서버 p95는
+            표시하지 않았습니다. LCP는 Lighthouse 로컬 production build 기준.
+            아래에서 각 측정의 전체 지표를 펼쳐볼 수 있습니다.
           </p>
         </section>
 
-        <section className="grid gap-5 md:grid-cols-2">
-          <div className="glass-card rounded-[2rem] px-6 py-6 sm:px-7">
-            <p className="eyebrow">Lighthouse · 모바일 4G</p>
-            <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-stone-950">
-              사용자 체감 LCP
-            </h2>
-            <p className="mt-2 text-xs text-stone-500">
-              5 runs × Moto G4 에뮬레이션, 로컬 production build
-            </p>
-            <table className="mt-5 w-full text-sm">
-              <tbody className="divide-y divide-stone-200/60">
-                {LIGHTHOUSE_4G.map((row) => (
-                  <tr key={row.strategy}>
-                    <td className="py-2 pr-3 font-medium text-stone-900">
-                      {row.strategy}
-                    </td>
-                    <td className="py-2 text-right">
-                      <span
-                        className={`inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${toneClass(
-                          row.tone
-                        )}`}
-                      >
-                        {row.lcp.toLocaleString()}ms
-                      </span>
-                    </td>
-                    <td className="py-2 pl-3 text-right font-mono text-xs text-stone-600">
-                      score {row.score}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p className="mt-3 text-xs leading-5 text-stone-500">
-              CSR은 LCP 3,200ms로 ISR 대비 +83%. 로딩 메시지가 LCP 후보로 잡히는
-              Lighthouse 특성상 실제 체감은 이보다 더 느릴 수 있습니다.
-            </p>
-          </div>
-
-          <div className="glass-card rounded-[2rem] px-6 py-6 sm:px-7">
-            <p className="eyebrow">Lighthouse · Slow 3G</p>
-            <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-stone-950">
-              저속 네트워크에서의 격차 확대
-            </h2>
-            <p className="mt-2 text-xs text-stone-500">
-              400kbps · RTT 400ms · CPU 4x 스로틀링
-            </p>
-            <table className="mt-5 w-full text-sm">
-              <tbody className="divide-y divide-stone-200/60">
-                {LIGHTHOUSE_3G.map((row) => (
-                  <tr key={row.strategy}>
-                    <td className="py-2 pr-3 font-medium text-stone-900">
-                      {row.strategy}
-                    </td>
-                    <td className="py-2 text-right">
-                      <span
-                        className={`inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${toneClass(
-                          row.tone
-                        )}`}
-                      >
-                        {row.lcp.toLocaleString()}ms
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p className="mt-3 text-xs leading-5 text-stone-500">
-              4G에서 +1.45초였던 CSR 격차가 3G에선 +2.7초로 벌어집니다. 저사양
-              폰·지하철·해외 사용자 비중이 클수록 CSR이 더 비쌉니다.
-            </p>
-          </div>
-        </section>
+        {/* 측정 원본 데이터 — 지표 빠짐없이 */}
+        <ServerTimingTable />
+        <LighthouseFullTable />
+        <BrowserTimingTable />
+        <SeoTable />
 
         <section className="grid gap-5 md:grid-cols-2">
           <div className="glass-card rounded-[2rem] px-6 py-6 sm:px-7">
-            <p className="eyebrow">Soak · 30분 장시간 테스트</p>
-            <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-stone-950">
-              Cache Components + Redis 안정성
-            </h2>
-            <p className="mt-2 text-xs text-stone-500">
-              /experiments/shared-cache · 10 VU constant · 30 min
-            </p>
-            <table className="mt-5 w-full text-sm">
-              <tbody className="divide-y divide-stone-200/60">
-                {SOAK_ROWS.map((row) => (
-                  <tr key={row.label}>
-                    <td className="py-2 pr-3 text-stone-700">{row.label}</td>
-                    <td className="py-2 text-right font-mono text-stone-900">
-                      {row.value}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p className="mt-3 text-xs leading-5 text-stone-500">
-              태그 인덱스 누수 없음, 메모리·네트워크 정상. `cacheLife` 만료
-              주기마다 같은 키를 재사용한다는 증거.
-            </p>
-          </div>
-
-          <div className="glass-card rounded-[2rem] px-6 py-6 sm:px-7">
-            <p className="eyebrow">Origin API 호출량</p>
+            <p className="eyebrow">Origin API 호출량 (가정치)</p>
             <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-stone-950">
               공유 캐시가 실제로 아끼는 것
             </h2>
