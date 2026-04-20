@@ -1,428 +1,321 @@
 # Next.js 16 + Redis Shared Cache Lab
 
-이 프로젝트의 의도는 단순히 Redis를 붙여보는 데 있지 않다. 핵심은 "멀티 인스턴스에서 Next 캐시가 왜 어긋나는지"를 먼저 재현하고, 그 문제를 Redis shared cache로 어떻게 해결하는지 before / after로 보여주는 것이다.
+> **"CSR이 서버비 아끼고 유저한테 넘기면 되지 않나"**
+> — 반만 맞는 이야기다. 이 저장소는 그 주장을 실측으로 반박한다.
 
-즉 이 저장소는 아래 세 가지를 한 화면에서 비교한다.
+Next.js 16 + AWS ECS Fargate 멀티 태스크 환경에서 `no-store` / ISR / Cache Components / Hybrid / CSR / BFF 여섯 전략을 같은 인프라에서 비교한 포트폴리오. 모든 수치는 staging에 배포된 **[실시간 대시보드](http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com/dashboard)** 에서 확인·재현 가능합니다.
 
-- `no-store` 기준선: 새로고침할 때마다 원본 API를 다시 호출한다
-- 기본 Next 캐시 before: `fetch(..., { next: { revalidate, tags } })` 경로가 멀티 인스턴스에서 인스턴스별 캐시로 갈라지는 잘못된 상황을 재현한다
-- Redis shared cache after: 여러 ECS task가 같은 캐시 엔트리를 보도록 중앙화한다
-
-> 목표는 "캐시를 붙였다"가 아니라, 다중 인스턴스 환경에서 캐시 불일치가 어떻게 생기는지 보여주고, Redis로 그 불일치와 무효화 어긋남을 어떻게 줄이는지 운영 환경에서 증명하는 것이다.
-
-![Next.js](https://img.shields.io/badge/Next.js-16.2.2-black?logo=next.js)
+![Next.js](https://img.shields.io/badge/Next.js-16.2.3-black?logo=next.js)
 ![React](https://img.shields.io/badge/React-19.2.0-61DAFB?logo=react)
-![Redis](https://img.shields.io/badge/Redis-5.10.0-DC382D?logo=redis)
+![Redis](https://img.shields.io/badge/Redis-5.x-DC382D?logo=redis)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss)
+![k6](https://img.shields.io/badge/k6-1.7.1-7D64FF)
+![Lighthouse](https://img.shields.io/badge/Lighthouse-12-F44B21)
 
-## 프로젝트 개요
+## 한눈에 보기
 
-기본 Next.js self-hosting에서는 ISR을 포함한 서버 캐시가 인스턴스별 로컬 파일시스템과 메모리에 저장된다. 그래서 ALB 뒤에 여러 앱 인스턴스나 ECS task가 있을 때, 같은 build를 쓰더라도 캐시와 무효화가 인스턴스마다 갈라질 수 있다. 이 프로젝트는 바로 그 "잘못된 기본 상태"를 먼저 재현한 뒤, Redis shared cache를 붙인 after 상태와 비교한다.
-
-이 프로젝트는 아래 구조를 기준으로 한다.
-
-```text
-            [Client]
-               |
-            [ALB]
-      /---------+---------\
- [Next #1]  [Next #2]  [Next #3]
-      \---------+---------/
-               |
-            [Redis]
-```
-
-핵심 아이디어:
-
-- ISR/SSG/Cache Components 각각이 어떤 캐시 계층을 쓰는지 분리해서 본다.
-- `cacheHandler`와 `cacheHandlers`를 구분해, ISR과 Cache Components를 각각 공유 캐시로 연결하는 방향을 검증한다.
-- Next 16의 권장 모델은 `use cache` / `cacheLife` / `cacheTag`를 기준으로 사용하되, 이전 모델의 `fetch(..., { next: { revalidate, tags } })`도 실제로 어떻게 동작하는지 함께 검증한다.
-- Redis를 공유 캐시 저장소와 무효화 조정 계층으로 사용한다.
-- 결과를 TTFB, p95/p99, origin fetch 감소, 일관성, 운영 비용 관점으로 비교한다.
-
-## 무엇을 증명했나
-
-staging에서 지금까지 확인한 핵심은 아래 세 가지다.
-
-1. 기본 Next 캐시는 멀티 인스턴스에서 인스턴스별로 갈라질 수 있다
-2. Redis shared cache를 붙이면 여러 ECS task에서도 같은 유저가 유지된다
-3. hard invalidation과 soft revalidation은 실제 체감이 분명히 다르다
-
-현재 UI는 이 차이를 바로 보여주기 위해 세 장의 카드를 사용한다.
-
-- `Live`: `no-store` 기준선
-- `Before`: 기본 Next 캐시가 멀티 인스턴스에서 갈라지는 상태
-- `After`: Redis shared cache로 중앙화된 상태
-
-## 현재 상태
-
-2026-04-08 기준으로 아래 항목을 확인했다.
-
-- Next.js `16.2.2`로 업그레이드 완료
-- Redis 기반 `cacheHandler` 초기 구현 추가
-- `proxy.ts` 기반 request correlation ID 주입 적용
-- webhook 인증, nonce, rate limit, structured log 구현
-- `/api/health`, `/api/metrics/*` 구현
-- Redis cache handler 단위/통합 테스트 통과
-- `lint`, `typecheck`, `test`, `build` 로컬 검증 완료
-
-2026-04-09 기준으로 staging에서 아래 항목도 추가 확인했다.
-
-- ECS Fargate 멀티 task 환경 배포 완료
-- ElastiCache Redis 연결 정상
-- 메인 `random-user` 캐시가 Redis에 실제 저장되는 것 확인
-- `next-cache:entry:*`, `next-cache:tag:*`, `next-cache:tag-expiration:*` 키 생성 확인
-- before 상태에서는 task마다 다른 유저가 보이는 멀티 인스턴스 캐시 불일치 재현
-- build/runtime 분리 이슈를 수정한 뒤 after 상태에서 중앙 Redis shared cache 동작 확인
-- Webhook 시뮬레이션 기반 hard invalidation 정상 동작 확인
-- Server Action 기반 `revalidateTag("max")`는 soft revalidation 특성상 즉시 변경이 아닌, 잠시 뒤 새 값이 반영되는 것 확인
-
-## 최종 측정 결과 (2026-04-19)
-
-staging ALB + ECS Fargate 2 task + ElastiCache `cache.t4g.micro` 구성에서 k6로 측정했다. 원본 데이터는 `docs/load-test/2026-04-19/`에 있다.
-
-### 기본 성능 (5 VU × 45s, constant)
-
-| 전략 | avg | p95 |
-| --- | --- | --- |
-| SSR (`no-store`) | 481ms | 855ms |
-| ISR (fetch revalidate 60s) | 222ms | 324ms |
-| Cache Components + Redis | 228ms | 354ms |
-
-### 스파이크 (30 VU × 3 scenarios × 5m hold, 동시 피크 90 VUs)
-
-| 전략 | avg | p95 | 에러율 |
-| --- | --- | --- | --- |
-| SSR | 1120ms | 1.95s | 0.31% |
-| ISR (fetch revalidate) | 482ms | 1.04s | 0.75% |
-| Cache Components + Redis | 899ms | 1.79s | 0.38% |
-
-총 20,377 요청 이후에도 Redis `entryKeys` 수는 1개로 유지됨 → 스파이크에서도 **원본 호출은 TTL 주기만큼만 발생**했다는 근거.
-
-### 소크 (shared-cache, 10 VU × 30m)
-
-| 지표 | 값 |
+| 구분 | 링크 |
 | --- | --- |
-| 총 요청 수 | 18,164 |
-| avg | 190ms |
-| p95 | 217ms |
-| 에러율 | 0.00% |
-| Redis keys (시작/종료) | 1 / 1 (누수 없음) |
+| **Staging (live)** | http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com |
+| **Dashboard (실측 요약)** | http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com/dashboard |
+| **Experiments 라우트** | http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com/experiments |
+| **3편 블로그 (운영 검증)** | https://www.eddy-dev.xyz/blog/next-js-16-redis-aws-self-hosting-%EC%BA%90%EC%8B%9C-%EB%B6%88%EC%9D%BC%EC%B9%98-%ED%95%B4%EA%B2%B0%ED%95%98%EA%B8%B0-3%ED%8E%B8-%EC%9A%B4%EC%98%81-%EA%B2%80%EC%A6%9D |
+| **4편 블로그 (실측과 최선의 선택)** | https://www.eddy-dev.xyz/blog/next-js-16-redis-aws-self-hosting-%EC%BA%90%EC%8B%9C-%EB%B6%88%EC%9D%BC%EC%B9%98-%ED%95%B4%EA%B2%B0%ED%95%98%EA%B8%B0-4%ED%8E%B8-%EB%A0%8C%EB%8D%94%EB%A7%81-%EC%A0%84%EB%9E%B5-%EC%8B%A4%EC%B8%A1%EA%B3%BC-%EC%B5%9C%EC%84%A0%EC%9D%98-%EC%84%A0%ED%83%9D |
 
-### 사용자 체감 성능 (Lighthouse 모바일 4G, 로컬 prod build)
+## 이 프로젝트가 증명하는 것
 
-| 전략 | LCP avg | Score |
+**공개 페이지 본문에 CSR을 쓰면 안 되는 이유를 수치 4개로 정리**하고, 그 대신 화면마다 무엇을 골라야 하는지 실측으로 답합니다.
+
+1. **공유 캐시는 실제로 스파이크에서 원본을 막는다** — 20,377 요청이 몰려도 Redis `entryKeys`는 1개로 고정 (Soak 30분 에러율 0.00%)
+2. **무효화는 두 태스크에 6.4ms 안에 동시 반영** — A/B 편차 0ms. 1편에서 지적한 "EC2 #1 최신 / #2 옛날" 문제가 실질 해결됨
+3. **CSR은 세션당 origin 호출 정확히 1.0회** — 분산 0. 사용자 N명 = origin 호출 N회가 구조적으로 확정
+4. **Hybrid(Streaming SSR + 섹션별 Cache Components)가 메인 페이지의 현실적 답** — LCP 1,743ms로 ISR과 동률이면서 섹션별 독립 무효화
+
+## 최종 측정 결과 요약 (2026-04-19 ~ 04-20)
+
+`ap-southeast-2` · ECS Fargate 2 task × 0.5 vCPU × 1 GB · ElastiCache `cache.t4g.micro` · ALB.
+
+### 서버 성능 (k6)
+
+| 전략 | 평상시 p95 | 스파이크 p95 | Soak 30min p95 |
+| --- | --- | --- | --- |
+| SSR (`no-store`) | 855ms | 1.95s | — |
+| ISR (fetch revalidate) | **324ms** | **1.04s** | — |
+| Cache Components + Redis | 354ms | 1.79s | **217ms** (에러 0.00%) |
+
+### 사용자 체감 LCP (Lighthouse 모바일 4G)
+
+| 전략 | LCP avg | Slow 3G |
 | --- | --- | --- |
-| ISR | **1746ms** | 100 |
-| Hybrid (Streaming SSR + 섹션별 Cache Components) | **1743ms** | 100 |
-| SSR / shared-cache | 1900~1904ms | ~100 |
-| BFF | 1987ms | 99 |
-| **CSR** | **3200ms (+1454ms, +83%)** | **93** |
-
-Slow 3G에서는 CSR만 **8.4초**, 나머지는 5.7~6.3초.
+| **ISR / Hybrid** | **1743~1746ms** | 5,693ms |
+| SSR / Cache Components | 1900~1904ms | 6,093~6,119ms |
+| BFF | 1987ms | 6,275ms |
+| **CSR** | **3200ms (+83%)** | **8,398ms** |
 
 ### SEO (초기 HTML 본문 길이)
 
-| 전략 | HTML 본문 |
-| --- | --- |
-| SSR / ISR / shared-cache | 3,200+ chars (풀 본문) |
-| Hybrid | 751 chars (shell + fallback, 이후 스트리밍) |
-| CSR / BFF | **143~165 chars (로딩 메시지만)** |
+| 전략 | Browser | Googlebot |
+| --- | --- | --- |
+| SSR / ISR / Cache Components | 3,200+ chars | 3,200+ chars |
+| Hybrid | 751 (shell + fallback) | 685 |
+| **CSR / BFF** | **143~165 (로딩 메시지)** | **80~93** |
 
-### 비용 (월 예상, ap-southeast-2)
+### 실측 2건 (2026-04-20 추가)
 
-| 항목 | 월 비용 |
+| 측정 | CSR | 나머지 5종 |
+| --- | --- | --- |
+| **세션당 origin API 호출** | **1.0회** (min=max=1, 분산 0) | **0회** |
+| 월 100만 세션 환산 | **1,000,000회** | 0 |
+
+| revalidateTag 전파 | Task A (3000) | Task B (3001) |
+| --- | --- | --- |
+| avg | **6.4ms** | **6.4ms** |
+| A/B 편차 | — | **0ms** |
+
+### 월 인프라 비용 (ap-southeast-2, 온디맨드)
+
+| 항목 | USD |
 | --- | --- |
 | ECS Fargate (2 task × 0.5 vCPU × 1 GB) | $44.98 |
-| ALB | $25.55 |
+| ALB (시간 + LCU) | $25.55 |
 | ElastiCache Redis `cache.t4g.micro` | $16.06 |
 | CloudWatch + Data Transfer | ~$11.72 |
 | **합계** | **$98.31/월** |
 
-전략 선택이 기본 인프라 비용을 크게 바꾸지는 않지만, **SSR은 태스크 증설 시점을 앞당긴다**. Redis `cache.t4g.micro`($16/월)는 태스크 1개 절감($22.49/월)만으로 회수된다.
+`cache.t4g.micro`($16.06)는 태스크 1개 절감($22.49)만으로 회수됩니다.
 
-자세한 분석: [`docs/blog/next16-redis-rendering-strategies-part-4.md`](./docs/blog/next16-redis-rendering-strategies-part-4.md), [`docs/cost-estimate.md`](./docs/cost-estimate.md), [`docs/load-test/summary.md`](./docs/load-test/summary.md).
+## 실험 경로 6종
 
-## Staging
+| 경로 | 전략 | 설명 |
+| --- | --- | --- |
+| [`/`](http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com) | Live/Before/After 3장 카드 | 멀티 인스턴스 캐시 일관성 before/after 데모 |
+| [`/dashboard`](http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com/dashboard) | 실측 결과 대시보드 | Act 1~5 스토리라인 + 아키텍처 SVG + Sticky TOC |
+| [`/experiments/ssr`](http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com/experiments/ssr) | SSR (`no-store`) | 요청마다 원본 호출 |
+| [`/experiments/isr-fetch`](http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com/experiments/isr-fetch) | ISR (fetch revalidate 60s) | 공유 캐시 기본값 |
+| [`/experiments/shared-cache`](http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com/experiments/shared-cache) | Cache Components + Redis | `use cache` + `cacheLife` + `cacheTag` |
+| [`/experiments/hybrid`](http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com/experiments/hybrid) | **Hybrid** | Streaming SSR + 섹션별 Cache Components |
+| [`/experiments/csr`](http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com/experiments/csr) | CSR | 브라우저 직접 fetch |
+| [`/experiments/bff`](http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com/experiments/bff) | BFF | `/api/bff/*` 경유 |
 
-- Staging URL: http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com
-- Health: http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com/api/health
-- Runtime: http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com/api/runtime
-- Cache Debug: http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com/api/cache-debug
+SSG는 비교에서 뺐습니다 — 이 시리즈가 푸는 "동적 데이터 멀티 인스턴스 일관성" 문제와 교집합이 없어서. 자세한 이유: [`docs/experiments/ssg-why-not-here.md`](./docs/experiments/ssg-why-not-here.md).
 
-Staging에서 확인한 핵심 시나리오:
+## 아키텍처
 
-1. `Live` 카드는 새로고침할 때마다 항상 다른 유저를 보여주는 기준선이다.
-2. `Before` 카드는 일반적인 Next fetch 캐시가 멀티 인스턴스에서 task별로 갈라질 수 있음을 보여준다.
-3. `After` 카드는 Redis shared cache를 통해 여러 task에서도 같은 유저가 유지되는 상태를 보여준다.
-4. Webhook 시뮬레이션 무효화 후 다시 요청하면 새로운 유저가 바로 보일 수 있다.
-5. Server Action 무효화는 `stale-while-revalidate` 성격이라 즉시 바뀌지 않을 수 있고, 잠시 뒤 다시 요청했을 때 새로운 유저가 보이는 것이 정상이다.
+```text
+            [사용자 · Googlebot]
+                   |
+               [ ALB ]
+          /------------+------------\
+  [ECS Task A]                [ECS Task B]
+  Next.js 16 port 3000        Next.js 16 port 3000
+  0.5 vCPU · 1 GB             0.5 vCPU · 1 GB
+          \------------+------------/
+                    (공유)
+           [ ElastiCache Redis ]
+           next-cache:entry:*
+           next-cache:tag:*
+           cache.t4g.micro · single-AZ
+                       |
+         (TTL 주기당 1회 · 또는 revalidateTag 시)
+                       v
+              [Origin API · randomuser.me]
+```
 
-더 자세한 재현 과정과 트러블슈팅은 [`docs/experiments/multi-instance-consistency-before-after.md`](/Users/jungpyo/workspace/next-redis-cache-demo/docs/experiments/multi-instance-consistency-before-after.md) 에 정리했다.
+두 ECS 태스크가 같은 ElastiCache Redis를 공유합니다. `revalidateTag` 호출 시 양쪽 태스크가 **6.4ms 안에 동시에** 새 값을 반환합니다 (A/B 편차 0ms).
 
-캐시 모델 검증 결과:
+대시보드에서는 같은 구성을 SVG로 시각화하고 CSR 경로(빨간 점선) vs 공유 캐시 경로(초록 점선) 차이도 표시합니다.
 
-- `cacheComponents: true`에서 `export const revalidate = 60`은 빌드 에러로 막힌다.
-- `await fetch(url, { next: { revalidate: 60 } })`는 production build 기준으로 캐시됨을 확인했다.
-- `use cache` + `cacheLife()` 역시 production build 기준으로 캐시됨을 확인했다.
-- 즉, 이 프로젝트는 권장 모델은 `use cache`를 기준으로 사용하되, fetch 기반 캐시도 여전히 설명하고 비교한다.
+## 시리즈 블로그
 
-현재 구현 범위에 대한 중요한 메모:
+| 편 | 주제 | 위치 |
+| --- | --- | --- |
+| 1편 | 멀티 인스턴스 캐시 불일치 개념 | [eddy-dev.xyz](https://www.eddy-dev.xyz/blog/Next.js-16-Redis-AWS-Self-hosting-%EC%BA%90%EC%8B%9C-%EB%B6%88%EC%9D%BC%EC%B9%98-%ED%95%B4%EA%B2%B0%ED%95%98%EA%B8%B0-1%ED%8E%B8-%EA%B0%9C%EB%85%90) |
+| 2편 | Docker Redis 로컬 재현 | [eddy-dev.xyz](https://www.eddy-dev.xyz/blog/Next.js-16-Redis-AWS-Self-hosting-%EC%BA%90%EC%8B%9C-%EB%B6%88%EC%9D%BC%EC%B9%98-%ED%95%B4%EA%B2%B0%ED%95%98%EA%B8%B0-2%ED%8E%B8-%EA%B5%AC%ED%98%84) |
+| 3편 | AWS Self-hosting 운영 검증 | [eddy-dev.xyz](https://www.eddy-dev.xyz/blog/next-js-16-redis-aws-self-hosting-%EC%BA%90%EC%8B%9C-%EB%B6%88%EC%9D%BC%EC%B9%98-%ED%95%B4%EA%B2%B0%ED%95%98%EA%B8%B0-3%ED%8E%B8-%EC%9A%B4%EC%98%81-%EA%B2%80%EC%A6%9D) · [`md`](./docs/blog/next16-redis-rendering-strategies-part-3.md) |
+| 4편 | 렌더링 전략 실측과 최선의 선택 | [eddy-dev.xyz](https://www.eddy-dev.xyz/blog/next-js-16-redis-aws-self-hosting-%EC%BA%90%EC%8B%9C-%EB%B6%88%EC%9D%BC%EC%B9%98-%ED%95%B4%EA%B2%B0%ED%95%98%EA%B8%B0-4%ED%8E%B8-%EB%A0%8C%EB%8D%94%EB%A7%81-%EC%A0%84%EB%9E%B5-%EC%8B%A4%EC%B8%A1%EA%B3%BC-%EC%B5%9C%EC%84%A0%EC%9D%98-%EC%84%A0%ED%83%9D) · [`md`](./docs/blog/next16-redis-rendering-strategies-part-4.md) |
 
-- 현재 저장소는 `cacheHandlers` 중심 구현에서 시작했지만, 이제 `cacheHandler` 초기 구현도 추가되어 ISR/route cache 공유 실험의 기반이 생겼다.
-- Next.js 공식 문서 기준으로 ISR과 route handler 응답 캐시는 `cacheHandler`(단수) 영역이다.
-- 다만 "멀티 인스턴스에서 ISR/SSG를 Redis로 안정적으로 공유"라는 목표를 입증하려면, 현재 초기 구현에 대해 실제 ECS 멀티 태스크 환경 검증과 지표 수집이 추가로 필요하다.
+4편 대시보드 스토리라인 (Hero → Act 1~5 → Appendix → CTA):
 
-검증 기준:
+- **Act 1** — 서버 시간만 보면 CSR이 이긴 것 같다 (오답 유도)
+- **Act 2** — 사용자 체감 / SEO / Origin API 3단 반전
+- **Act 3** — 공유 캐시 효과: 20K 요청에 Redis 1개 · 전파 6.4ms
+- **Climax** — "전략은 하나가 아니다. 화면마다 다르다."
+- **Act 4** — 화면별 최선의 선택 5카드
+- **Act 5** — 운영 중 실제 겪은 사고 2건 (Resolved)
+
+## 캐시 계층 설계 (중요)
+
+Next.js 16에는 **두 개의 다른 캐시 핸들러 설정**이 있고, 이 프로젝트는 둘 다 Redis로 보냅니다.
+
+| 설정 | 대상 | 이 프로젝트에서 |
+| --- | --- | --- |
+| `cacheHandler` (singular) | ISR / route handler 응답 / optimized images | [`incremental-cache-handler.js`](./incremental-cache-handler.js) — Redis |
+| `cacheHandlers.default` (plural) | `use cache` / Cache Components | [`redis-handler.cjs`](./redis-handler.cjs) — Redis |
+
+**빌드 간 엔트리 격리**: `incremental-cache-handler.js`의 엔트리 키는 `DEPLOYMENT_VERSION`(git SHA) 네임스페이스로 분리되어, 배포 간에도 옛 HTML이 갇히지 않습니다. 태그 메타 키는 배포 경계를 넘어 공유(= `revalidateTag`는 배포 간에도 작동).
+
+자세한 이유: [`docs/incident/static-chunk-404-turbopack-mismatch.md`](./docs/incident/static-chunk-404-turbopack-mismatch.md) (Resolved 2026-04-20).
+
+## 운영 사고 (Resolved)
+
+포트폴리오 검증 중 staging에서 발견·해결한 사고 2건을 원인·수정·배포 검증까지 기록했습니다.
+
+1. **배포 경계 캐시 누수** ([docs/incident/static-chunk-404-turbopack-mismatch.md](./docs/incident/static-chunk-404-turbopack-mismatch.md))
+   - 증상: 새 배포 후에도 옛 Turbopack 청크(`*.wizo.js`) 404
+   - 원인: Redis 엔트리 키에 buildId 네임스페이스 없음
+   - 수정: `BUILD_NAMESPACE`(git SHA) prefix 추가, 태그 키는 공유 유지
+
+2. **Health endpoint 오판** ([docs/incident/health-endpoint-redis-ping-mismatch.md](./docs/incident/health-endpoint-redis-ping-mismatch.md))
+   - 증상: Redis 정상인데 `/api/health` 503, latencyMs=-1
+   - 원인: `await import("@/redis-handler")` 동적 import 실패
+   - 수정: `lib/redis-client.ts`에 `pingRedis()` static export, 1.5s 타임아웃
+
+## 재현하기 — 3가지 명령
+
+대시보드의 모든 수치를 직접 재현할 수 있습니다.
+
+### 1. 서버 응답 시간 (k6)
+
+```bash
+APP_BASE_URL=http://<your-alb>/ npm run test:load:baseline
+APP_BASE_URL=http://<your-alb>/ k6 run scripts/k6-spike.js
+APP_BASE_URL=http://<your-alb>/ k6 run scripts/k6-soak.js
+```
+
+### 2. 사용자 체감 (Lighthouse)
+
+```bash
+# 로컬 prod build 필요
+REDIS_URL=redis://localhost:6379 npm run build && \
+  REDIS_URL=redis://localhost:6379 npm start
+
+APP_BASE_URL=http://localhost:3000 node scripts/measure-web-vitals.mjs
+APP_BASE_URL=http://localhost:3000 node scripts/measure-web-vitals-slow3g.mjs
+```
+
+### 3. CSR origin 호출 · revalidateTag 전파 (Phase 1 실측)
+
+```bash
+# CSR 세션당 origin 호출 카운트
+APP_BASE_URL=http://localhost:3000 SESSION_COUNT=10 \
+  node scripts/measure-origin-fetch-per-session.mjs
+
+# 두 포트로 같은 Redis 공유 후 전파 측정
+redis-server --daemonize yes
+PORT=3000 REDIS_URL=redis://localhost:6379 npm start &
+PORT=3001 REDIS_URL=redis://localhost:6379 npm start &
+
+TASK_A_URL=http://localhost:3000 TASK_B_URL=http://localhost:3001 \
+  ROUNDS=5 POLL_INTERVAL_MS=100 \
+  node scripts/measure-revalidate-tag-propagation.mjs
+```
+
+## 시작하기
+
+### 요구사항
+- Node.js `20.9+` (`.nvmrc` 고정)
+- npm
+- Docker (선택) 또는 Homebrew로 설치한 Redis
+
+### 로컬 실행
 
 ```bash
 nvm use
+npm install
+
+# Redis (Docker 또는 로컬 설치 모두 가능)
+docker run --name next-redis -p 6379:6379 -d redis
+# 또는
+redis-server --daemonize yes --port 6379
+
+# 환경변수
+cp .env.example .env.local
+# (REDIS_URL, REVALIDATION_SECRET, WEBHOOK_SIGNING_SECRET 값 채우기)
+
+npm run dev
+```
+
+브라우저에서 `http://localhost:3000`에 접속하면 메인의 before/after 비교와 `/dashboard`, `/experiments/*`를 전부 확인할 수 있습니다.
+
+### 검증 명령
+
+```bash
 npm run lint
 npm run typecheck
 npm test
 DISABLE_REDIS_CACHE_HANDLER=true npm run build
 ```
 
-주의:
-
-- 이 프로젝트는 Node.js `20.9+`가 필요하다.
-- 로컬 기본 셸이 낮은 Node 버전을 가리키면 Next 16, Vitest 4, ESLint 9가 함께 깨질 수 있다.
-- `.nvmrc`는 현재 검증에 사용한 Node 버전을 고정한다.
-
-## 아직 부족한 점
-
-최종 측정까지 끝낸 뒤에도 남아 있는 항목들.
-
-- `/api/health`가 `checkRedisPing` 경로에서만 Redis 연결을 잘못 판정해 503을 반환 (다른 Redis 경로는 정상). `docs/incident/health-endpoint-redis-ping-mismatch.md` 참조.
-- staging에서 `/_next/static/chunks/*`가 404를 반환해 브라우저 기반 CSR/BFF 재측정이 막혔다. Turbopack/webpack 빌드 산출물 불일치로 보이며 `docs/incident/static-chunk-404-turbopack-mismatch.md`에 기록.
-- 메트릭 저장소가 프로세스 메모리 기반이라 멀티 인스턴스 전역 집계는 별도 파이프라인 필요.
-- ISR/route cache용 `cacheHandler`(singular)의 실환경 일관성 검증과 Redis 장애 실험은 staging 전환 후 추가 계획.
-
-## 핵심 기능
-
-- Redis 기반 공유 캐시 실험 베이스
-- 태그 기반 무효화
-- soft stale / hard expire 구분
-- HMAC 기반 webhook 검증
-- nonce replay 방지
-- Redis 기반 rate limit
-- readiness/liveness health endpoint
-- consistency / invalidation / prefetch metrics
-- ECS + ALB + ElastiCache Terraform 스택
-- GitHub Actions 기반 CI / staging / production 배포 워크플로
+로컬에서 Redis 없이 빌드만 확인하려면 `DISABLE_REDIS_CACHE_HANDLER=true`를 사용하세요. 실제 Redis 연동은 Redis를 띄운 뒤 `npm start`로 확인합니다.
 
 ## 기술 스택
 
 | 구분 | 기술 | 비고 |
 | --- | --- | --- |
-| Framework | Next.js 16.2.2 | App Router, self-hosting |
-| UI | React 19.2.0 | App Router |
+| Framework | Next.js 16.2.3 | App Router, self-hosting, `cacheComponents: true` |
+| UI | React 19.2 | Geist 폰트, Tailwind CSS 4 다크 톤 |
 | Language | TypeScript | strict mode |
-| Cache | Redis 5.x | 공유 캐시 및 무효화 조정 계층 |
-| Infra | AWS ECS / ALB / ElastiCache | Terraform |
-| CI/CD | GitHub Actions | CI, staging, production |
-| Test | Vitest | unit / integration |
+| Cache | Redis 5.x | `cacheHandler` + `cacheHandlers` 이중 연결 |
+| Infra | AWS ECS Fargate · ALB · ElastiCache · ECR | Terraform |
+| CI/CD | GitHub Actions | main → staging 자동 배포 |
+| 부하 테스트 | k6 v1.7.1 | baseline · spike · soak 3종 |
+| 사용자 체감 | Lighthouse 12 | 모바일 4G · Slow 3G 2종 |
+| 브라우저 계측 | Playwright | CSR/BFF + Phase 1 실측 2건 |
+| Test | Vitest | 9 파일 / 34 테스트 |
 
-## 시작하기
-
-### 1. 요구사항
-
-- Node.js `20.9+`
-- npm
-- Docker
-- 로컬 Redis 또는 `DISABLE_REDIS_CACHE_HANDLER=true` 빌드 전략
-
-### 2. 의존성 설치
-
-```bash
-nvm use
-npm install
-```
-
-### 3. 환경변수 준비
-
-`.env.example`를 기준으로 `.env.local`을 준비한다.
-
-```env
-REDIS_URL=redis://localhost:6379
-REVALIDATION_SECRET=change-me-to-a-32-char-random-secret
-WEBHOOK_SIGNING_SECRET=change-me-to-another-32-char-random-secret
-APP_BASE_URL=http://localhost:3000
-REVALIDATE_RATE_LIMIT_PER_MINUTE=30
-WEBHOOK_MAX_SKEW_SECONDS=300
-WEBHOOK_NONCE_TTL_SECONDS=600
-```
-
-### 4. Redis 실행
-
-```bash
-docker run --name next-redis -p 6379:6379 -d redis
-```
-
-### 5. 앱 실행
-
-```bash
-npm run dev
-```
-
-브라우저에서 `http://localhost:3000` 접속.
-
-## 검증 명령어
-
-```bash
-npm run lint
-npm run typecheck
-npm test
-DISABLE_REDIS_CACHE_HANDLER=true npm run build
-```
-
-메모:
-
-- 로컬에서 Redis 없이 `build`만 확인할 때는 `DISABLE_REDIS_CACHE_HANDLER=true`를 권장한다.
-- 실제 Redis 연동 동작은 Redis를 띄운 뒤 `npm run dev` 또는 `npm start`로 확인한다.
-
-## 주요 경로
+## 주요 디렉토리
 
 ```text
 app/
-  api/revalidate/          webhook 기반 hard expire
-  api/health/              readiness/liveness
-  api/metrics/             런타임 메트릭 수집
-  components/              데모 UI 및 prefetch 실험 UI
-  lib/getRandomUser.ts     캐시 fetch 샘플
+  api/revalidate/            webhook 기반 hard expire (HMAC 검증)
+  api/health/                /api/health (lib/redis-client#pingRedis)
+  api/metrics/               런타임 메트릭 수집
+  api/cache-debug/           Redis 키 상태 조회
+  dashboard/                 실측 결과 스토리라인 대시보드
+    components/              Architecture · Climax · Verdict · StickyToc 등 14개
+  experiments/               SSR/ISR/shared-cache/hybrid/csr/bff 6개 라우트
+  components/                홈 UI (before/after 카드)
 lib/
-  env.ts                   환경변수 스키마
-  metrics.ts               인메모리 메트릭 집계
-  redis-client.ts          Redis 클라이언트 팩토리
-redis-handler.ts           Next cache handler
-proxy.ts                   request correlation ID 주입
-infra/terraform/           ECR / secrets / app-stack
-ops/                       CloudWatch / deploy 스크립트
-docs/                      실험, 장애, 비용, 학습 문서
+  redis-client.ts            공유 Redis 클라이언트 + pingRedis()
+  env.ts                     환경변수 스키마
+  metrics.ts                 인메모리 메트릭 집계
+redis-handler.ts             Cache Components용 핸들러
+redis-handler.cjs            (번들) cacheHandlers.default
+incremental-cache-handler.js ISR/route cache용 (BUILD_NAMESPACE 격리)
+proxy.ts                     request correlation ID 주입
+infra/terraform/             ECR / secrets / app-stack
+scripts/
+  k6-{baseline,spike,soak}.js          부하 테스트
+  measure-web-vitals{,-slow3g}.mjs     Lighthouse 자동화
+  measure-seo-html.mjs                 UA별 HTML 길이
+  measure-origin-fetch-per-session.mjs CSR origin 카운트 (Phase 1)
+  measure-revalidate-tag-propagation.mjs 태스크 간 전파 측정 (Phase 1)
+docs/
+  blog/                      시리즈 3편 · 4편 markdown
+  experiments/               실험별 분석 문서
+  incident/                  운영 사고 기록 (Resolved 2건)
+  load-test/                 측정 JSON 원본
+  cost-estimate.md           월 인프라 비용
 ```
 
-## 캐시 전략 요약
+## 공식 자료 기준 확인
 
-### 왜 Redis가 필요한가
+Next.js 공식 self-hosting 문서 기준 사실:
 
-Next.js 공식 self-hosting 문서 기준으로 ISR을 포함한 서버 캐시는 기본적으로 각 서버 인스턴스의 로컬 파일시스템에 저장된다. 멀티 인스턴스/멀티 태스크 환경에서는 각 인스턴스가 자기 캐시 사본을 가지므로, 공유 캐시 없이 운영하면 인스턴스마다 stale 상태가 달라질 수 있다. 이 저장소는 그 문제를 단순 설명이 아니라, 실제 UI와 staging 배포 결과로 before / after 비교할 수 있게 만드는 것이 목적이다.
+1. ISR을 포함한 server cache는 기본적으로 각 인스턴스의 로컬 파일시스템에 저장됨
+2. 멀티 인스턴스/컨테이너 환경에서는 각 인스턴스가 자기 캐시 사본을 가짐
+3. `revalidateTag()`를 한 인스턴스에서 호출하면 기본적으로 그 인스턴스만 즉시 무효화됨
+4. ISR · route 응답 공유 캐시는 `cacheHandler`(단수) 영역, `use cache`는 `cacheHandlers`(복수) 영역
+5. `cacheComponents: true` 프로젝트에서는 route segment config `revalidate`는 호환되지 않음
 
-이 프로젝트는 그 문제를 Redis 기반 공유 캐시로 줄이고, 실제로 원본 호출량, 응답 일관성, 무효화 반영 차이가 어떻게 달라지는지 실험하는 것이 목적이다.
+즉 "멀티 인스턴스에서 ISR 무효화가 한 인스턴스에만 먼저 반영되는 문제"는 공식 문서상 실제 고려 사항이 맞고, 이 프로젝트는 그걸 **실측 6.4ms · 편차 0ms**까지 좁혔습니다.
 
-### `cacheHandler` vs `cacheHandlers`
-
-| 설정 | 대상 | 현재 상태 |
-| --- | --- | --- |
-| `cacheHandler` | ISR, route handler 응답, optimized images 등 서버 캐시 | Redis 초기 구현 추가 |
-| `cacheHandlers` | `use cache` / Cache Components | Redis 핸들러 구현 완료 |
-
-### Next 16에서 무엇을 권장하나
-
-`cacheComponents: true`를 사용하는 Next 16에서는 새 권장 모델이 `use cache` 중심이다.
-
-- 권장 중심:
-  - `use cache`
-  - `cacheLife()`
-  - `cacheTag()`
-  - `revalidateTag()`
-  - `updateTag()`
-- 여전히 사용 가능:
-  - `fetch(..., { next: { revalidate: 60 } })`
-  - `fetch(..., { next: { tags: ["sample"] } })`
-- 이 프로젝트에서 실제로 막힌 것:
-  - `export const revalidate = 60`
-    - `cacheComponents: true`에서는 route segment config `revalidate`가 빌드 에러를 발생시킴
-
-즉 이 저장소의 실무 원칙은 아래와 같다.
-
-1. 기본 설계와 신규 구현은 `use cache` 계열을 우선한다.
-2. 기존 모델이나 fetch 단위 캐시가 더 적합한 경우 `fetch next.revalidate/tags`도 사용 가능하다고 설명한다.
-3. route segment `revalidate`는 `cacheComponents: true` 프로젝트에서는 사용하지 않는다.
-
-### 캐시 모델 검증 메모
-
-production 기준 검증 경로:
-
-- `/verify/fetch-revalidate-only`
-- `/verify/use-cache`
-
-검증 결과:
-
-- `fetch next.revalidate only` 경로는 두 번 조회 시 같은 응답을 반환해 캐시됨을 확인했다.
-- `use cache + cacheLife` 경로도 두 번 조회 시 같은 응답을 반환해 캐시됨을 확인했다.
-- 이 검증은 [`scripts/e2e-cache-model-check.mjs`](./scripts/e2e-cache-model-check.mjs) 로 재현 가능하다.
-
-### Soft stale
-
-Server Action에서 `revalidateTag(tag, "max")`를 호출해 stale-while-revalidate 경로를 탄다.
-
-현재 staging에서 확인한 체감 동작:
-
-1. 버튼 직후 바로 새로고침하면 이전 값이 남아 있을 수 있다.
-2. 조금 뒤 다시 요청하면 새 값으로 교체된다.
-3. 즉, 현재 구현은 "즉시 hard expire"가 아니라 soft revalidation semantics에 가깝게 동작한다.
-
-### Hard expire
-
-Webhook이나 외부 동기화 이벤트에서 `revalidateTag(tag, { expire: 0 })`를 호출해 즉시 만료시킨다.
-
-현재 staging에서 확인한 체감 동작:
-
-1. Webhook 시뮬레이션 버튼으로 무효화를 요청한다.
-2. 다시 요청하면 즉시 다른 유저가 보일 가능성이 높다.
-3. soft revalidation보다 훨씬 직접적인 invalidation UX를 제공한다.
-
-### 현재 구현 포인트
-
-- 캐시 엔트리는 Redis JSON + base64 stream 형태로 저장
-- 태그 인덱스는 Redis Set으로 유지
-- hard expire 시 태그 인덱스를 통해 연결된 엔트리를 삭제
-- soft stale 시 태그 expiration marker만 갱신
-
-## 운영 문서와 산출물
-
-아래 문서들은 포트폴리오 마감 전까지 채워야 하는 핵심 산출물이다.
-
-- [Next.js 16 캐시 심화 노트](./docs/study/nextjs16-cache-deep-dive.md)
-- [SSR vs ISR vs Cache Components 비교](./docs/experiments/ssr-vs-isr-vs-cache-components.md)
-- [BFF vs Direct Client Call 비교](./docs/experiments/bff-vs-direct-client-call.md)
-- [멀티 인스턴스 일관성 before/after](./docs/experiments/multi-instance-consistency-before-after.md)
-- [Prefetch 정책 비교](./docs/experiments/prefetch-policy-comparison.md)
-- [Redis 장애 리포트](./docs/incident/redis-outage-report.md)
-- [App 재시작 장애 리포트](./docs/incident/app-restart-report.md)
-- [Load Test Summary](./docs/load-test/summary.md)
-- [배포/롤백 런북](./docs/ops/runbook-deploy-rollback.md)
-- [비용 추정](./docs/cost-estimate.md)
-
-## 알려진 리스크
-
-- 현재 프로젝트는 목표상 ISR/SSG 공유 캐시까지 다루며, `cacheHandler` 초기 구현까지 추가되었다. 다만 운영 입증은 아직 남아 있다.
-- Redis 장애 시 캐시 핸들러 연결 실패가 응답 경로와 빌드 로그에 노출될 수 있다.
-- 현재 메트릭은 프로세스 메모리 기반이라 멀티 인스턴스 총합 지표로 바로 쓰기 어렵다.
-- fetch 샘플이 아직 운영형 정책을 모두 반영하지 못했다.
-- BFF 트랙과 성능 실험 문서는 아직 구현 전 단계다.
-
-## 공식 자료 기준 확인 사항
-
-Next.js 공식 self-hosting 문서(최종 확인: 2026-04-08) 기준으로 확인한 사실:
-
-1. ISR을 포함한 Next.js server cache는 기본적으로 각 서버 인스턴스의 로컬 파일시스템에 저장된다.
-2. 멀티 인스턴스/컨테이너 환경에서는 각 인스턴스가 자기 캐시 사본을 가진다.
-3. App Router 멀티 인스턴스 환경에서 `revalidateTag()`를 한 인스턴스에서 호출하면 기본적으로 그 인스턴스만 즉시 무효화된다.
-4. ISR과 route response 공유 캐시는 `cacheHandler`(singular)로 다뤄야 하고, `use cache`는 `cacheHandlers`(plural)로 다뤄야 한다.
-5. `cacheComponents: true` 프로젝트에서는 route segment config `revalidate`는 호환되지 않으며, 새 권장 모델은 `use cache` 계열이다.
-
-즉, "멀티 인스턴스에서 ISR 무효화가 한 인스턴스에만 먼저 반영되는 문제"는 공식 문서상 실제 고려사항이 맞다.
-
-## 참고 자료
+## 참고 링크
 
 - https://nextjs.org/docs/app/getting-started/cache-components
 - https://nextjs.org/docs/app/api-reference/directives/use-cache
 - https://nextjs.org/docs/app/api-reference/functions/cacheLife
 - https://nextjs.org/docs/app/api-reference/functions/cacheTag
 - https://nextjs.org/docs/app/api-reference/functions/revalidateTag
-- https://nextjs.org/docs/app/api-reference/functions/updateTag
 - https://nextjs.org/docs/app/api-reference/config/next-config-js/cacheHandlers
 - https://nextjs.org/docs/app/guides/self-hosting
-- https://nextjs.org/docs/app/api-reference/config/next-config-js/incrementalCacheHandlerPath
-- https://nextjs.org/docs/messages/middleware-to-proxy
