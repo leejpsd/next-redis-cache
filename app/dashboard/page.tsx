@@ -467,10 +467,15 @@ ROUNDS=5 POLL_INTERVAL_MS=100 \\
         </div>
 
         <section className="glass-card rounded-[2rem] px-6 py-6 sm:px-7">
-          <p className="eyebrow">Recommendation · 화면별 최선의 선택</p>
+          <p className="eyebrow">Recommendation · 화면·섹션별 최선의 선택</p>
           <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-stone-950">
-            결론: 전략은 화면 성격으로 고른다
+            결론: 전략은 섹션 성격으로 고른다
           </h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-600">
+            App Router에선 한 화면 안에서도 섹션마다 다른 전략을 섞을 수 있습니다.
+            아래 표는 단일 화면 또는 단일 섹션 단위의 매칭이며, 실제 페이지는 보통
+            여러 행을 조합한 하이브리드 형태가 됩니다.
+          </p>
           <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {RECOMMENDATIONS.map((r) => (
               <article
@@ -632,6 +637,15 @@ ROUNDS=5 POLL_INTERVAL_MS=100 \\
           </table>
           <p className="mt-3 text-xs leading-5 text-stone-500">
             태스크 1개 절감(월 $22.49)만으로 Redis 비용($16.06)이 회수됩니다.
+          </p>
+          <p className="mt-3 rounded-2xl border border-stone-300/80 bg-white/5 px-4 py-3 text-xs leading-6 text-stone-700">
+            <span className="font-semibold text-stone-950">왜 이 표가 의미 있는가:</span>{" "}
+            이 글이 검증한 trade-off는 결국 *비용 축*에서 만나집니다.
+            CSR이 절약한다는 월 $22는 ECS task 1개의 단가이고,
+            Redis 공유 캐시($16)는 그 절감분 안에서 회수되며,
+            동시에 origin API 호출을 사용자 100만 명 → TTL당 1회로 줄입니다.
+            즉 &ldquo;프론트 캐시는 자원 낭비&rdquo;라는 직관과 정반대로,
+            <span className="font-semibold text-emerald-800"> 같은 비용에서 더 나은 결과</span>로 이어집니다.
           </p>
         </section>
 
