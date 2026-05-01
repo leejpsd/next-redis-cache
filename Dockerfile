@@ -34,9 +34,14 @@ RUN npx next build --webpack 2>&1 | tee /tmp/next-build.log \
 
 FROM node:22-alpine AS runner
 WORKDIR /app
+ARG DEPLOYMENT_VERSION=dev-build
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
+# BUILD_NAMESPACE은 incremental-cache-handler.js가 entry key prefix로 사용한다.
+# runner stage는 builder의 ENV를 상속하지 않으므로 여기서도 ARG/ENV를 다시 선언한다.
+ENV DEPLOYMENT_VERSION=$DEPLOYMENT_VERSION
+ENV GIT_HASH=$DEPLOYMENT_VERSION
 
 RUN addgroup -S nextjs && adduser -S nextjs -G nextjs
 

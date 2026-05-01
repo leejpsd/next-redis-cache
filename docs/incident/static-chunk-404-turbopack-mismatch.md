@@ -153,3 +153,91 @@ function entryKey(key) {
 ## 4편 서술 계획
 
 CSR/BFF 비교는 **이전 측정 (2026-04-14) 결과**를 그대로 인용하되, "이번 운영 검증 중 발견한 deployment skew 형태의 실제 사례"로 이 인시던트 자체를 서술한다. 4편의 "일관성 vs 속도" 주제와 자연스럽게 연결된다.
+
+## 2026-05-01 재발 — 절반만 작동하던 fix
+
+대시보드 코드 변경 후 배포한 직후 `/dashboard`가 *"This page couldn't load"*로 깨지고 새로고침해도 청크 404가 그대로 재현됨. 2026-04-20에 *Resolved*로 닫았던 이슈가 같은 양상으로 다시 나타났다.
+
+### 정확한 진단
+
+응답 헤더는 같은 패턴:
+```
+x-nextjs-cache: HIT
+ETag: "qk77rhlo0rv3u"
+Cache-Control: s-maxage=31536000
+```
+
+대시보드 HTML은 `page-5d927b01...js`, `c6ce6ef377...css` 같은 **이전 빌드 청크**를 참조했고, 새 이미지엔 다른 해시(`page-435692...js`, `5a2934d4...css`)로 빌드돼 있어 404.
+
+`/api/cache-debug`로 Redis 키를 확인해보니 결정적 단서:
+
+```
+next-incremental:entry:unversioned:/dashboard
+next-incremental:entry:/dashboard
+```
+
+`unversioned`. 즉 `BUILD_NAMESPACE`가 `process.env.DEPLOYMENT_VERSION || process.env.GIT_HASH || "unversioned"` 평가에서 **항상 마지막 fallback으로 떨어지고 있었다**. 모든 배포가 같은 키를 사용 → 옛 HTML이 새 배포 후에도 그대로 hit.
+
+### 진짜 원인 (2026-04-20 fix가 미완이었던 이유)
+
+Dockerfile은 multi-stage:
+
+```dockerfile
+FROM node:22-alpine AS builder
+ARG DEPLOYMENT_VERSION=dev-build
+ENV DEPLOYMENT_VERSION=$DEPLOYMENT_VERSION   # ← builder에는 들어감
+RUN npx next build --webpack ...
+
+FROM node:22-alpine AS runner                # ← 새 stage
+# DEPLOYMENT_VERSION ARG/ENV 선언 없음        # ← 누락
+COPY --from=builder /app/.next/standalone ./
+CMD ["node", "server.js"]
+```
+
+Multi-stage build에서 `FROM ... AS runner`로 새 stage가 시작되면 **이전 stage의 ENV는 자동 상속되지 않는다**. 파일은 `COPY --from=builder`로 가져왔지만 환경변수는 따라오지 않음. 결과: 런타임 컨테이너의 `process.env.DEPLOYMENT_VERSION`은 비어 있고, JS 코드의 `BUILD_NAMESPACE` 분리 로직은 영원히 `"unversioned"`만 평가했다.
+
+JS 코드 fix만 보면 해결된 것처럼 보이지만, 컨테이너 안에서는 fix가 발동조차 못하고 있었다. **반쪽짜리 수정이 1년치 공유 캐시 위에서 보이지 않게 동작 안 하던 상태**.
+
+### 왜 그동안엔 멀쩡했는가
+
+대시보드 코드를 안 건드린 동안엔 webpack이 **같은 청크 해시**를 생성해서, 옛 HTML이 참조하는 청크가 우연히 새 빌드에도 존재했다. 최근 dashboard 코드를 4번 수정하면서(`feat(dashboard): ...` 시리즈) 청크 해시가 달라졌고, 그 순간 미스매치가 드러났다.
+
+### 복구 절차 (2026-05-01 적용)
+
+1. `app/api/cache-debug/route.ts`에 시크릿 보호된 임시 DELETE 핸들러 추가, 배포
+2. ECR `:staging` 태그 ↔ task definition이 가리키는 SHA 태그 디지스트 동기화 (deploy 스크립트의 별개 한계가 동시에 드러남 — 아래 참조)
+3. DELETE 호출로 `next-cache:*` + `next-incremental:*` 키 비움
+4. **결정타**: ECS task definition에 `DEPLOYMENT_VERSION` 환경변수를 직접 추가한 새 revision 등록 → 새 task가 versioned 키로 prerender entry 생성 → 옛 unversioned 키와 격리
+
+배포 후 응답 검증:
+- ETag `qk77rhlo0rv3u` → `12qi9sbkp6v89uv` (새 prerender)
+- Content-Length 42,618 → 405,772 bytes
+- 모든 청크 200
+
+### 영구 수정 (이번에 진짜로 해결)
+
+**Dockerfile** runner stage에 ARG/ENV를 다시 선언:
+
+```dockerfile
+FROM node:22-alpine AS runner
+ARG DEPLOYMENT_VERSION=dev-build
+ENV DEPLOYMENT_VERSION=$DEPLOYMENT_VERSION
+ENV GIT_HASH=$DEPLOYMENT_VERSION
+```
+
+이로써 task definition 환경변수에 의존하지 않고 이미지 자체가 자기 buildId를 ENV로 들고 있게 된다.
+
+**부수 발견 — deploy-staging.sh의 별개 함정**:
+- 기존 스크립트는 `:staging` 태그로만 push했지만 task definition은 SHA 태그(`:8d5a4f71c4cc...`)를 가리킴
+- 두 태그가 따로 놀아서 ECS가 새 디지스트를 풀링 안 함 → 매 배포마다 수동 재태깅 필요했음
+
+→ 스크립트를 다음과 같이 개선:
+1. `:staging` + `:<git-sha>` 두 태그 동시 push
+2. 매 배포마다 task definition 새 revision을 새 image URI로 등록
+3. service를 새 revision으로 update → ECS가 명시적으로 새 디지스트 풀링
+
+### 교훈
+
+1. **반쪽짜리 fix는 반쪽이 죽어도 안 보인다**. JS 코드 변경이 컨테이너 내부 ENV에 의존할 때, ENV 주입 경로(Dockerfile multi-stage, task definition, secrets)를 같이 검증해야 한다.
+2. **`unversioned` 같은 fallback 값은 운영 환경에서 절대 등장하면 안 되는 신호**다. 다음 단계로 `BUILD_NAMESPACE`가 `unversioned`로 평가되면 startup에서 fail-fast 하도록 강화 가능 (별도 후속).
+3. **Movable tag (`:staging`) + task definition의 immutable tag 조합은 ECS 디지스트 캐시와 충돌**한다. 매 배포마다 task definition revision을 새로 등록하는 게 안전.
