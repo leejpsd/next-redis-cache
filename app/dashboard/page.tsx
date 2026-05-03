@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArchitectureDiagram } from "./components/ArchitectureDiagram";
 import { BrowserTimingTable } from "./components/BrowserTimingTable";
@@ -17,6 +18,22 @@ import { SpikeRedisProof } from "./components/SpikeRedisProof";
 import { StickyToc } from "./components/StickyToc";
 import { StoryTransition } from "./components/StoryTransition";
 import { Verdict } from "./components/Verdict";
+
+export const metadata: Metadata = {
+  title: "렌더링 전략 실측 결과",
+  description:
+    "\"CSR로 다 돌려서 서버비 아끼면 되잖아?\" — 반만 맞는 이야기. CSR 세션당 origin 1.0회, LCP +83%, revalidateTag 전파 6.4ms. AWS ECS Fargate 멀티 태스크에서 6개 렌더링 전략을 실측 비교한 대시보드.",
+  openGraph: {
+    title: "렌더링 전략 실측 결과 — Next.js 16 + Redis 대시보드",
+    description:
+      "\"CSR로 다 돌려서 서버비 아끼면 되잖아?\" — 실측으로 답했다. 6개 전략 비교 + 운영 사고 2건 + 모든 수치 재현 가능.",
+  },
+  twitter: {
+    title: "Next.js 16 + Redis 렌더링 전략 실측 대시보드",
+    description:
+      "CSR이 서버비 아끼는 건 맞다. 그런데 그 비용, 어디로 가는지 재봤다. AWS ECS 실측 6개 전략 비교.",
+  },
+};
 
 const COST_ROWS = [
   { item: "ECS Fargate (2 task × 0.5 vCPU × 1 GB)", cost: 44.98 },
