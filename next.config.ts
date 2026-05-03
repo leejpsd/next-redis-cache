@@ -1,3 +1,4 @@
+import path from "path";
 import type { NextConfig } from "next";
 
 const hasRedisUrl = Boolean(process.env.REDIS_URL);
@@ -6,6 +7,10 @@ const enableRedisCacheHandler =
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // 부모 디렉토리에 lockfile이 있어도 항상 프로젝트 폴더를 workspace root로 고정한다.
+  // 그렇지 않으면 standalone 빌드의 정적 파일 추적 경로가 어긋나 일부 청크가 누락돼
+  // 운영에서 chunk 404가 발생할 수 있다.
+  outputFileTracingRoot: path.join(__dirname),
   deploymentId: process.env.DEPLOYMENT_VERSION,
   generateBuildId: async () =>
     process.env.DEPLOYMENT_VERSION || process.env.GIT_HASH || "dev-build",
