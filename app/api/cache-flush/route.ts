@@ -44,8 +44,11 @@ async function deleteByPattern(pattern: string): Promise<number> {
   let deleted = 0;
   const batch: string[] = [];
 
-  for await (const key of redis.scanIterator({ MATCH: pattern, COUNT: 200 })) {
-    batch.push(typeof key === "string" ? key : String(key));
+  // redis@5의 scanIterator는 chunk(string[]) 단위로 yield한다.
+  // v4와 달리 한 키씩 yield하지 않으므로 spread 처리 필수.
+  for await (const chunk of redis.scanIterator({ MATCH: pattern, COUNT: 200 })) {
+    const keys = Array.isArray(chunk) ? chunk.map(String) : [String(chunk)];
+    batch.push(...keys);
     if (batch.length >= 500) {
       deleted += await redis.del(batch);
       batch.length = 0;

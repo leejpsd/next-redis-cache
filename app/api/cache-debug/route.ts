@@ -6,11 +6,16 @@ async function collectKeys(pattern: string): Promise<string[]> {
   const redis = await getRedisClient();
   const keys: string[] = [];
 
-  for await (const key of redis.scanIterator({
+  // redis@5의 scanIterator는 chunk(string[]) 단위로 yield. spread 필수.
+  for await (const chunk of redis.scanIterator({
     MATCH: pattern,
     COUNT: 100,
   })) {
-    keys.push(typeof key === "string" ? key : String(key));
+    if (Array.isArray(chunk)) {
+      for (const k of chunk) keys.push(String(k));
+    } else {
+      keys.push(String(chunk));
+    }
   }
 
   return keys.sort();
