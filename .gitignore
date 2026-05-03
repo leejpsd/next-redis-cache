@@ -42,3 +42,30 @@ next-env.d.ts
 
 
 *.tfvars
+
+# Terraform state + cache (절대 공개 금지 — AWS 리소스 ID·엔드포인트 포함)
+**/.terraform/
+**/terraform.tfstate
+**/terraform.tfstate.backup
+**/terraform.tfstate.lock.info
+
+# Claude 개발 지시서 (로컬 전용)
+AGENTS.md
+.claude/
+
+# k6 progress 덤프 (summary.json이 있으면 원본 stdout은 불필요)
+docs/load-test/**/*.stdout.log
+
+# 블로그 markdown은 CMS(eddy-dev.xyz)에 게시되므로 저장소엔 올리지 않는다.
+# 블로그 유입을 CMS로 유도하기 위한 정책.
+docs/blog/
+
+# '중' 등급 문서는 로컬 작업용으로만 유지 (포트폴리오 산출물은 높음 이상만 공개)
+docs/experiments/bff-vs-direct-client-call.md
+docs/experiments/multi-instance-consistency-before-after.md
+docs/experiments/prefetch-policy-comparison.md
+docs/experiments/ssr-vs-isr-vs-cache-components.md
+docs/study/
+docs/ops/
+ops/deploy/
+
