@@ -18,19 +18,31 @@ async function collectKeys(pattern: string): Promise<string[]> {
 
 export async function GET(): Promise<NextResponse> {
   try {
-    const [entryKeys, tagKeys, tagExpirationKeys] = await Promise.all([
+    const [
+      entryKeys,
+      tagKeys,
+      tagExpirationKeys,
+      incrementalEntryKeys,
+      incrementalTagKeys,
+    ] = await Promise.all([
       collectKeys("next-cache:entry:*"),
       collectKeys("next-cache:tag:*"),
       collectKeys("next-cache:tag-expiration:*"),
+      collectKeys("next-incremental:entry:*"),
+      collectKeys("next-incremental:tag:*"),
     ]);
 
     return NextResponse.json(
       {
         runtime: getRuntimeIdentity(),
         cacheState: {
+          // Cache Components(use cache) 영역
           entryKeys,
           tagKeys,
           tagExpirationKeys,
+          // ISR/route cache (cacheHandler) 영역 — prerender HTML이 여기 저장됨
+          incrementalEntryKeys,
+          incrementalTagKeys,
         },
       },
       { status: 200 }
