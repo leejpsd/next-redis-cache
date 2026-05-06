@@ -5,6 +5,19 @@ const hasRedisUrl = Boolean(process.env.REDIS_URL);
 const enableRedisCacheHandler =
   hasRedisUrl && process.env.DISABLE_REDIS_CACHE_HANDLER !== "true";
 
+// Dogfood toggle: when USE_LIBRARY_HANDLER=true, route both handlers through
+// @leejpsd/nextjs-cache-handler instead of the in-tree implementations. Lets
+// us validate the published library on real staging before cutting v0.1.0
+// and gives one-env-var rollback if anything regresses.
+const useLibraryHandler = process.env.USE_LIBRARY_HANDLER === "true";
+
+const incrementalHandlerPath = useLibraryHandler
+  ? "./lib-incremental-cache-handler.cjs"
+  : "./incremental-cache-handler.js";
+const cacheComponentsHandlerPath = useLibraryHandler
+  ? "./lib-cache-components.cjs"
+  : "./redis-handler.cjs";
+
 const nextConfig: NextConfig = {
   output: "standalone",
   // 부모 디렉토리에 lockfile이 있어도 항상 프로젝트 폴더를 workspace root로 고정한다.
@@ -17,12 +30,12 @@ const nextConfig: NextConfig = {
   // ISR/route cache (singular cacheHandler)와
   // Cache Components(use cache, plural cacheHandlers)를 각각 Redis로 공유한다.
   cacheHandler: enableRedisCacheHandler
-    ? require.resolve("./incremental-cache-handler.js")
+    ? require.resolve(incrementalHandlerPath)
     : undefined,
 
   cacheHandlers: enableRedisCacheHandler
     ? {
-        default: require.resolve("./redis-handler.cjs"),
+        default: require.resolve(cacheComponentsHandlerPath),
       }
     : {},
 

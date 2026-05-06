@@ -23,6 +23,7 @@
     "deploy:staging": "bash scripts/deploy-staging.sh"
   },
   "dependencies": {
+    "@leejpsd/nextjs-cache-handler": "^0.1.0-rc.1",
     "next": "^16.2.3",
     "react": "19.2.0",
     "react-dom": "19.2.0",
