@@ -14,11 +14,6 @@
 
 const useLibrary = process.env.USE_LIBRARY_HANDLER === "true";
 
-console.log("[cache-components-router] active backend:", useLibrary ? "library" : "in-tree", {
-  USE_LIBRARY_HANDLER: process.env.USE_LIBRARY_HANDLER,
-  NEXT_PHASE: process.env.NEXT_PHASE,
-});
-
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const handler = useLibrary
   ? require("./lib-cache-components.cjs")
