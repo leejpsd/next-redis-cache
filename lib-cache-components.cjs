@@ -10,6 +10,16 @@
 
 "use strict";
 
+// Startup signal — proves at runtime that this wrapper module was actually
+// resolved by Next.js, not silently ignored due to a tracing/path issue.
+console.log(
+  "[lib-cache-components] loaded — using @leejpsd/nextjs-cache-handler wrapper",
+  {
+    USE_LIBRARY_HANDLER: process.env.USE_LIBRARY_HANDLER,
+    NEXT_PHASE: process.env.NEXT_PHASE,
+  }
+);
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const lib = require("@leejpsd/nextjs-cache-handler/cache-components");
 

@@ -9,6 +9,14 @@
 
 "use strict";
 
+console.log(
+  "[lib-incremental] loaded — using @leejpsd/nextjs-cache-handler wrapper",
+  {
+    USE_LIBRARY_HANDLER: process.env.USE_LIBRARY_HANDLER,
+    NEXT_PHASE: process.env.NEXT_PHASE,
+  }
+);
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const lib = require("@leejpsd/nextjs-cache-handler/incremental");
 
