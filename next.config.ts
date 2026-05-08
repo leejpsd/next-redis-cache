@@ -5,18 +5,16 @@ const hasRedisUrl = Boolean(process.env.REDIS_URL);
 const enableRedisCacheHandler =
   hasRedisUrl && process.env.DISABLE_REDIS_CACHE_HANDLER !== "true";
 
-// Dogfood toggle: when USE_LIBRARY_HANDLER=true, route both handlers through
-// @leejpsd/nextjs-cache-handler instead of the in-tree implementations. Lets
-// us validate the published library on real staging before cutting v0.1.0
-// and gives one-env-var rollback if anything regresses.
-const useLibraryHandler = process.env.USE_LIBRARY_HANDLER === "true";
-
-const incrementalHandlerPath = useLibraryHandler
-  ? "./lib-incremental-cache-handler.cjs"
-  : "./incremental-cache-handler.js";
-const cacheComponentsHandlerPath = useLibraryHandler
-  ? "./lib-cache-components.cjs"
-  : "./redis-handler.cjs";
+// next.config.ts is evaluated at *build* time. A direct `useLibraryHandler =
+// process.env.USE_LIBRARY_HANDLER === "true"` here would pick a path once
+// during the Docker build (where the env is unset) and bake that resolved
+// absolute path into the standalone server, defeating any runtime override.
+//
+// We delegate the actual choice to small router modules that read the env
+// at *request* time. next.config.ts only needs to point Next.js at those
+// routers; the routers point Next.js at the right backend handler.
+const incrementalHandlerPath = "./incremental-router.cjs";
+const cacheComponentsHandlerPath = "./cache-components-router.cjs";
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -31,10 +29,16 @@ const nextConfig: NextConfig = {
   // 무성한 fallback이 발생한다. 명시적으로 trace에 포함시켜 차단한다.
   outputFileTracingIncludes: {
     "/**/*": [
+      // Routers (runtime toggle entry points)
+      "./incremental-router.cjs",
+      "./cache-components-router.cjs",
+      // Library wrappers (resolved by routers when USE_LIBRARY_HANDLER=true)
       "./lib-cache-components.cjs",
       "./lib-incremental-cache-handler.cjs",
+      // In-tree handlers (resolved by routers when USE_LIBRARY_HANDLER=false)
       "./incremental-cache-handler.js",
       "./redis-handler.cjs",
+      // Library npm package
       "./node_modules/@leejpsd/nextjs-cache-handler/**/*",
     ],
   },
