@@ -13,7 +13,14 @@ const eslintConfig = defineConfig([
     "build/**",
     "coverage/**",
     "next-env.d.ts",
+    // CommonJS shim modules that wire Next.js's cacheHandler/cacheHandlers
+    // options. Next.js calls these via require.resolve() at request time,
+    // and CJS require() is the right tool — type-aware lint rules don't fit.
     "redis-handler.cjs",
+    "cache-components-router.cjs",
+    "incremental-router.cjs",
+    "lib-cache-components.cjs",
+    "lib-incremental-cache-handler.cjs",
   ]),
 ]);
 
