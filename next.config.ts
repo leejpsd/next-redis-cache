@@ -24,6 +24,20 @@ const nextConfig: NextConfig = {
   // 그렇지 않으면 standalone 빌드의 정적 파일 추적 경로가 어긋나 일부 청크가 누락돼
   // 운영에서 chunk 404가 발생할 수 있다.
   outputFileTracingRoot: path.join(__dirname),
+  // Next.js standalone 빌드는 next.config 평가 시점에 require.resolve로 잡힌
+  // 파일만 trace한다. USE_LIBRARY_HANDLER 토글은 빌드 시점에는 보통 false라
+  // 라이브러리 wrapper와 npm 패키지가 standalone 디렉토리에 누락된다. 결과적으로
+  // 런타임에 USE_LIBRARY_HANDLER=true 로 켜도 파일이 없어 Next.js 기본 LRU로
+  // 무성한 fallback이 발생한다. 명시적으로 trace에 포함시켜 차단한다.
+  outputFileTracingIncludes: {
+    "/**/*": [
+      "./lib-cache-components.cjs",
+      "./lib-incremental-cache-handler.cjs",
+      "./incremental-cache-handler.js",
+      "./redis-handler.cjs",
+      "./node_modules/@leejpsd/nextjs-cache-handler/**/*",
+    ],
+  },
   deploymentId: process.env.DEPLOYMENT_VERSION,
   generateBuildId: async () =>
     process.env.DEPLOYMENT_VERSION || process.env.GIT_HASH || "dev-build",
