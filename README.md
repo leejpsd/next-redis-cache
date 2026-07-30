@@ -3,7 +3,7 @@
 > **"CSR이 서버비 아끼고 유저한테 넘기면 되지 않나"**
 > — 반만 맞는 이야기다. 이 저장소는 그 주장을 실측으로 반박한다.
 
-Next.js 16 + AWS ECS Fargate 멀티 태스크 환경에서 `no-store` / ISR / Cache Components / Hybrid / CSR / BFF 여섯 전략을 같은 인프라에서 비교한 포트폴리오. 모든 수치는 staging에 배포된 **[실시간 대시보드](http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com/dashboard)** 에서 확인·재현 가능합니다.
+Next.js 16 + AWS ECS Fargate 멀티 태스크 환경에서 `no-store` / ISR / Cache Components / Hybrid / CSR / BFF 여섯 전략을 같은 인프라에서 비교한 포트폴리오. 모든 수치는 측정 시나리오·계측 코드와 함께 저장소에 기록되어 있습니다. 라이브 인프라(월 $98)는 검증 완료 후 종료했으며, `infra/`·`ops/`로 동일 환경을 재현할 수 있습니다.
 
 ![Next.js](https://img.shields.io/badge/Next.js-16.2.3-black?logo=next.js)
 ![React](https://img.shields.io/badge/React-19.2.0-61DAFB?logo=react)
@@ -16,9 +16,7 @@ Next.js 16 + AWS ECS Fargate 멀티 태스크 환경에서 `no-store` / ISR / Ca
 
 | 구분 | 링크 |
 | --- | --- |
-| **Staging (live)** | http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com |
-| **Dashboard (실측 요약)** | http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com/dashboard |
-| **Experiments 라우트** | http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com/experiments |
+| **Live 인프라** | 검증 완료 후 종료(2026-07) — `infra/`·`ops/`로 재현 가능 |
 | **3편 블로그 (운영 검증)** | https://www.eddy-dev.xyz/blog/next-js-16-redis-aws-self-hosting-%EC%BA%90%EC%8B%9C-%EB%B6%88%EC%9D%BC%EC%B9%98-%ED%95%B4%EA%B2%B0%ED%95%98%EA%B8%B0-3%ED%8E%B8-%EC%9A%B4%EC%98%81-%EA%B2%80%EC%A6%9D |
 | **4편 블로그 (실측과 최선의 선택)** | https://www.eddy-dev.xyz/blog/next-js-16-redis-aws-self-hosting-%EC%BA%90%EC%8B%9C-%EB%B6%88%EC%9D%BC%EC%B9%98-%ED%95%B4%EA%B2%B0%ED%95%98%EA%B8%B0-4%ED%8E%B8-%EB%A0%8C%EB%8D%94%EB%A7%81-%EC%A0%84%EB%9E%B5-%EC%8B%A4%EC%B8%A1%EA%B3%BC-%EC%B5%9C%EC%84%A0%EC%9D%98-%EC%84%A0%ED%83%9D |
 
@@ -88,14 +86,14 @@ Next.js 16 + AWS ECS Fargate 멀티 태스크 환경에서 `no-store` / ISR / Ca
 
 | 경로 | 전략 | 설명 |
 | --- | --- | --- |
-| [`/`](http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com) | Live/Before/After 3장 카드 | 멀티 인스턴스 캐시 일관성 before/after 데모 |
-| [`/dashboard`](http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com/dashboard) | 실측 결과 대시보드 | Act 1~5 스토리라인 + 아키텍처 SVG + Sticky TOC |
-| [`/experiments/ssr`](http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com/experiments/ssr) | SSR (`no-store`) | 요청마다 원본 호출 |
-| [`/experiments/isr-fetch`](http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com/experiments/isr-fetch) | ISR (fetch revalidate 60s) | 공유 캐시 기본값 |
-| [`/experiments/shared-cache`](http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com/experiments/shared-cache) | Cache Components + Redis | `use cache` + `cacheLife` + `cacheTag` |
-| [`/experiments/hybrid`](http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com/experiments/hybrid) | **Hybrid** | Streaming SSR + 섹션별 Cache Components |
-| [`/experiments/csr`](http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com/experiments/csr) | CSR | 브라우저 직접 fetch |
-| [`/experiments/bff`](http://next-redis-cache-staging-alb-1315597713.ap-southeast-2.elb.amazonaws.com/experiments/bff) | BFF | `/api/bff/*` 경유 |
+| [`/`]((라이브 인프라 종료)) | Live/Before/After 3장 카드 | 멀티 인스턴스 캐시 일관성 before/after 데모 |
+| [`/dashboard`]((라이브 인프라 종료)) | 실측 결과 대시보드 | Act 1~5 스토리라인 + 아키텍처 SVG + Sticky TOC |
+| [`/experiments/ssr`]((라이브 인프라 종료)/ssr) | SSR (`no-store`) | 요청마다 원본 호출 |
+| [`/experiments/isr-fetch`]((라이브 인프라 종료)/isr-fetch) | ISR (fetch revalidate 60s) | 공유 캐시 기본값 |
+| [`/experiments/shared-cache`]((라이브 인프라 종료)/shared-cache) | Cache Components + Redis | `use cache` + `cacheLife` + `cacheTag` |
+| [`/experiments/hybrid`]((라이브 인프라 종료)/hybrid) | **Hybrid** | Streaming SSR + 섹션별 Cache Components |
+| [`/experiments/csr`]((라이브 인프라 종료)/csr) | CSR | 브라우저 직접 fetch |
+| [`/experiments/bff`]((라이브 인프라 종료)/bff) | BFF | `/api/bff/*` 경유 |
 
 SSG는 비교에서 뺐습니다 — 이 시리즈가 푸는 "동적 데이터 멀티 인스턴스 일관성" 문제와 교집합이 없어서. 자세한 이유: [`docs/experiments/ssg-why-not-here.md`](./docs/experiments/ssg-why-not-here.md).
 
